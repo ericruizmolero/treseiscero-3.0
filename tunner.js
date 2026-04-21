@@ -123,7 +123,7 @@ document.addEventListener("DOMContentLoaded", (event) => {
 
   // --- 6. CONTROLES DRAGGABLE Y CLICKS ---
   
-  // A. Control del dial físico (Mantiene el arrastre)
+  // A. Control del dial físico
   if (radioTop) {
     Draggable.create(radioTop, {
       type: "rotation",
@@ -135,7 +135,7 @@ document.addEventListener("DOMContentLoaded", (event) => {
     });
   }
 
-  // B. Control del Slider de tarjetas (Mantiene el arrastre ultra-sensible)
+  // B. Control del Slider de tarjetas
   if (homeMiddle) {
     let startSliderRot = 0; 
 
@@ -175,36 +175,43 @@ document.addEventListener("DOMContentLoaded", (event) => {
     homeMiddle.style.cursor = "grab";
   }
 
-  // --- NUEVO C. CLICKS EN LAS BARRAS DE FRECUENCIA ---
-  if (freqBars.length > 0) {
-    freqBars.forEach((bar, index) => {
-      // Le ponemos el cursor de "pointer" para que parezca clicable
-      bar.style.cursor = "pointer";
+  // --- NUEVO C. CLIC INTELIGENTE EN TODO EL LAYOUT DE BARRAS ---
+  if (freqLayout) {
+    freqLayout.style.cursor = "pointer";
+    
+    freqLayout.addEventListener('click', (e) => {
+      // Calculamos las dimensiones exactas del layout en pantalla
+      const rect = freqLayout.getBoundingClientRect();
       
-      bar.addEventListener('click', (e) => {
-        // Evitamos conflictos si se hace clic justo en el texto que está dentro
-        e.stopPropagation();
-        
-        // 1. Calculamos a cuántos grados equivale esta barra en concreto
-        let exactTargetRot = (index / (totalBars - 1)) * 360;
-        
-        // 2. Buscamos el "magnetismo": el slide más cercano a esos grados
-        let interval = 360 / (totalSlides - 1); 
-        let snappedRot = Math.round(exactTargetRot / interval) * interval;
-        snappedRot = Math.max(0, Math.min(360, snappedRot));
+      // Vemos dónde hizo click el usuario en X (0 a ancho total)
+      const clickX = e.clientX - rect.left;
+      
+      // Lo convertimos a un porcentaje del 0 al 1
+      let percentage = clickX / rect.width;
+      
+      // Nos aseguramos de que no se pase de los bordes por si clican en los paddings
+      percentage = Math.max(0, Math.min(1, percentage));
+      
+      // Traducimos el porcentaje a grados (0º a 360º)
+      let exactTargetRot = percentage * 360;
+      
+      // Aplicamos el "magnetismo": buscamos el slide más cercano
+      let interval = 360 / (totalSlides - 1); 
+      let snappedRot = Math.round(exactTargetRot / interval) * interval;
+      snappedRot = Math.max(0, Math.min(360, snappedRot));
 
-        // 3. Volamos suavemente hacia allí
-        syncSystem(snappedRot, 0.8);
-      });
+      // Volamos hacia el imán suavemente
+      syncSystem(snappedRot, 0.8);
     });
   }
 
-  // D. EVENTOS DE CLICK EN LOS TABS (Mantenido intacto)
+  // D. EVENTOS DE CLICK EN LOS TABS
   if (tabWrappers.length > 0) {
     tabWrappers.forEach((wrapper, index) => {
       wrapper.style.cursor = "pointer";
       wrapper.addEventListener('click', (e) => {
-        e.stopPropagation();
+        // Esto detiene el clic para que no active el evento de freqLayout al mismo tiempo
+        e.stopPropagation(); 
         let interval = 360 / (tabWrappers.length - 1);
         let targetRot = index * interval; 
         syncSystem(targetRot, 0.8); 
