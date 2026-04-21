@@ -17,8 +17,8 @@ document.addEventListener("DOMContentLoaded", (event) => {
   const tabWrappers = document.querySelectorAll('.radio_freq-layout .radio_tab-link-wrapper');
   
   // REFERENCIAS DE TEXTO Y LOGO
-  const radioDreg = document.querySelector('.radio_dreg'); // El texto numérico dinámico
-  const logoContainer = document.querySelector('.radio_logo-container'); // 🔥 NUEVO: Contenedor donde pondrás tu SVG/Imagen del logo
+  const radioDreg = document.querySelector('.radio_dreg'); 
+  const logoContainer = document.querySelector('.radio_logo-container'); 
 
   // Diccionario de números a palabras
   const digitToWord = {
@@ -43,7 +43,8 @@ document.addEventListener("DOMContentLoaded", (event) => {
 
   window.addEventListener('resize', () => {
     updateDimensions();
-    let currentRot = gsap.getProperty(radioTop, "rotation") || 180;
+    // Al redimensionar, mantenemos la posición actual sin animaciones
+    let currentRot = gsap.getProperty(radioTop, "rotation") || 0;
     syncSystem(currentRot, 0); 
   });
 
@@ -55,27 +56,23 @@ document.addEventListener("DOMContentLoaded", (event) => {
 
   // --- 3. LÓGICA DE UI (BARRAS, TABS, TEXTO Y LOGO) ---
   function renderUI(interpolatedRotation) {
-    // Redondeamos los grados actuales
     let degrees = Math.round(interpolatedRotation);
     degrees = Math.max(0, Math.min(360, degrees));
 
-    // --- 🔥 NUEVA LÓGICA DE LOGO DE MARCA "treseiscero" ---
-    // Comprobamos si estamos EXACTAMENTE en el imán de 360 grados (Labs)
+    // LÓGICA DE LOGO "treseiscero" EN 360º
     const isAtLogoSlide = (degrees === 360);
 
     if (logoContainer && radioDreg) {
       if (isAtLogoSlide) {
-        // Estamos en 360: Mostramos el logo diseñado, ocultamos el texto genérico
         gsap.to(logoContainer, { opacity: 1, duration: 0.1, overwrite: "auto" });
         gsap.to(radioDreg, { opacity: 0, duration: 0.1, overwrite: "auto" });
       } else {
-        // No estamos en 360: Ocultamos el logo, mostramos el texto numérico dinámico
         gsap.to(logoContainer, { opacity: 0, duration: 0.1, overwrite: "auto" });
         gsap.to(radioDreg, { opacity: 1, duration: 0.1, overwrite: "auto" });
       }
     }
 
-    // 1. Actualizar texto numérico dinámico (.radio_dreg) si está visible
+    // Actualizar texto dinámico .radio_dreg
     if (radioDreg && !isAtLogoSlide) {
       let textValue = degrees.toString().split('').map(digit => digitToWord[digit]).join('');
       if (radioDreg.innerText !== textValue) {
@@ -83,19 +80,18 @@ document.addEventListener("DOMContentLoaded", (event) => {
       }
     }
 
-    // 2. Progreso circular
+    // Progreso circular CSS variable
     let progress = (interpolatedRotation / 360) * 100;
     if (progressiveWrapper) {
       progressiveWrapper.style.setProperty('--progress', progress.toFixed(2));
     }
 
-    // 3. Luces y sonido
+    // Luces de frecuencia
     let barIndex = Math.round((progress / 100) * (totalBars - 1));
 
     if (barIndex !== lastBarPlayed) {
       freqBars.forEach((bar, index) => {
         bar.classList.remove('is-active', 'is-active-1', 'is-active-2');
-        
         let tabLink = bar.querySelector('.radio_tab-link');
         if (tabLink) tabLink.classList.remove('is-active');
 
@@ -114,7 +110,6 @@ document.addEventListener("DOMContentLoaded", (event) => {
         tickSound.play().catch(() => {});
         lastTickTime = now;
       }
-
       lastBarPlayed = barIndex;
     }
   }
@@ -123,6 +118,7 @@ document.addEventListener("DOMContentLoaded", (event) => {
   function syncSystem(targetRot, duration = 0.6) {
     let clamped = Math.max(0, Math.min(360, targetRot));
 
+    // Movimiento del Slider
     if (homeMiddle && totalSlides > 0) {
       let progress = clamped / 360;
       let slideIndexFloat = progress * (totalSlides - 1);
@@ -138,6 +134,7 @@ document.addEventListener("DOMContentLoaded", (event) => {
       });
     }
 
+    // Animación de la rueda y feedback UI
     gsap.to(radioTop, { 
       rotation: clamped, 
       duration: duration, 
@@ -204,11 +201,9 @@ document.addEventListener("DOMContentLoaded", (event) => {
         else targetRot = Math.round(currentRot / interval) * interval;
 
         targetRot = Math.max(0, Math.min(360, targetRot));
-
         syncSystem(targetRot, 0.8); 
       }
     });
-
     homeMiddle.style.cursor = "grab";
   }
 
@@ -243,5 +238,6 @@ document.addEventListener("DOMContentLoaded", (event) => {
 
   // --- 7. INICIALIZACIÓN ---
   updateDimensions();
-  syncSystem(180, 0); 
+  // 🔥 CAMBIADO: Ahora todo el sistema empieza en 0 grados (Manifesto / cero)
+  syncSystem(0, 0); 
 });
