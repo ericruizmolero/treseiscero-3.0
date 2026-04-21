@@ -37,10 +37,10 @@ document.addEventListener("DOMContentLoaded", (event) => {
     syncSystem(currentRot, 0); 
   });
 
-  // --- 2. SISTEMA DE SONIDO ---
+  // --- 2. SISTEMA DE SONIDO OPTIMIZADO ---
   const tickSound = new Audio('https://cdn.prod.website-files.com/69d75a4037abb9fda95564c7/69d7c990b63368c8dcf28ca5_254286__jagadamba__mechanical-switch.mp3'); 
-  tickSound.volume = 0.1;
   let lastBarPlayed = -1;
+  let lastTickTime = 0; // Guardará el momento exacto del último sonido emitido
 
   // --- 3. LÓGICA DE UI (BARRAS Y TABS) ---
   function renderUI(interpolatedRotation) {
@@ -68,18 +68,24 @@ document.addEventListener("DOMContentLoaded", (event) => {
         else if (diff === 2) bar.classList.add('is-active-2');
       });
 
-      const sound = tickSound.cloneNode();
-      sound.volume = 0.08;
-      sound.play().catch(() => {});
+      // --- CONTROL DE SOLAPAMIENTO DE SONIDO (THROTTLE) ---
+      let now = Date.now();
+      // Solo reproduce si han pasado más de 40 milisegundos
+      if (now - lastTickTime > 40) {
+        const sound = tickSound.cloneNode();
+        sound.volume = 0.06; // Volumen ligeramente más bajo para saltos largos
+        sound.play().catch(() => {});
+        lastTickTime = now;
+      }
+
       lastBarPlayed = barIndex;
     }
   }
 
-  // --- 4. SISTEMA CENTRAL DE SINCRONIZACIÓN (CON SMOOTHNESS AUMENTADO) ---
+  // --- 4. SISTEMA CENTRAL DE SINCRONIZACIÓN ---
   function syncSystem(targetRot, duration = 0.6) {
     let clamped = Math.max(0, Math.min(360, targetRot));
 
-    // Animamos el slider con el tiempo solicitado (0.6s por defecto)
     if (homeMiddle && totalSlides > 0) {
       let progress = clamped / 360;
       let slideIndexFloat = progress * (totalSlides - 1);
@@ -95,14 +101,12 @@ document.addEventListener("DOMContentLoaded", (event) => {
       });
     }
 
-    // Animamos la rueda física
     gsap.to(radioTop, { 
       rotation: clamped, 
       duration: duration, 
       ease: "power2.out", 
       overwrite: "auto",
       onUpdate: function() {
-        // Las luces siguen milimétricamente la posición de la rueda mientras se mueve suavemente
         let currentInterpolatedRot = gsap.getProperty(radioTop, "rotation");
         renderUI(currentInterpolatedRot);
       }
@@ -116,7 +120,6 @@ document.addEventListener("DOMContentLoaded", (event) => {
     let targetRot = Math.round(currentRot / interval) * interval;
     targetRot = Math.max(0, Math.min(360, targetRot));
 
-    // El encaje final lo hacemos aún más suave (0.8s) para que se sienta premium
     syncSystem(targetRot, 0.8);
   }
 
@@ -127,7 +130,6 @@ document.addEventListener("DOMContentLoaded", (event) => {
       type: "rotation",
       bounds: { minRotation: 0, maxRotation: 360 },
       onDrag: function() {
-        // En el dial físico queremos respuesta inmediata para no perder el control
         syncSystem(this.rotation, 0.1); 
       },
       onDragEnd: snapToNearestSlide
@@ -142,7 +144,7 @@ document.addEventListener("DOMContentLoaded", (event) => {
         let sensibilidad = 2; 
         let currentRot = gsap.getProperty(radioTop, "rotation");
         let newRotation = currentRot + (this.deltaX / sensibilidad);
-        syncSystem(newRotation, 0.4); // Suavidad media durante el arrastre
+        syncSystem(newRotation, 0.4);
       },
       onDragEnd: snapToNearestSlide
     });
@@ -167,7 +169,6 @@ document.addEventListener("DOMContentLoaded", (event) => {
         let rotationChange = -(this.deltaX * sensibilidadSlider / safeStep) * interval;
         let newRotation = currentRot + rotationChange;
         
-        // Aplicamos los 0.6s de suavidad mientras arrastras el slider
         syncSystem(newRotation, 0.6); 
       },
       onDragEnd: function() {
@@ -182,7 +183,7 @@ document.addEventListener("DOMContentLoaded", (event) => {
 
         targetRot = Math.max(0, Math.min(360, targetRot));
 
-        syncSystem(targetRot, 0.8); // Snap final extra fluido
+        syncSystem(targetRot, 0.8); 
       }
     });
 
@@ -197,12 +198,12 @@ document.addEventListener("DOMContentLoaded", (event) => {
         e.stopPropagation();
         let interval = 360 / (tabWrappers.length - 1);
         let targetRot = index * interval; 
-        syncSystem(targetRot, 0.8); // Navegación por tabs muy suave
+        syncSystem(targetRot, 0.8); 
       });
     });
   }
 
   // --- 7. INICIALIZACIÓN ---
   updateDimensions();
-  syncSystem(180, 0); // Inicio instantáneo sin transición
+  syncSystem(180, 0); 
 });
