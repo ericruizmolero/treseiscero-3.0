@@ -14,9 +14,9 @@ document.addEventListener("DOMContentLoaded", (event) => {
   const slides = document.querySelectorAll('.home_bento');
   const totalSlides = slides.length; 
   
-  // NUEVAS REFERENCIAS: Los textos/tabs
-  const tabWrappers = document.querySelectorAll('.radio_tab-link-wrapper');
-  const tabLinks = document.querySelectorAll('.radio_tab-link');
+  // SELECCIÓN ESTRICTA para evitar duplicados ocultos
+  const tabWrappers = document.querySelectorAll('.radio_freq-layout .radio_tab-link-wrapper');
+  const tabLinks = document.querySelectorAll('.radio_freq-layout .radio_tab-link');
 
   // Variables de dimensiones
   let slideWidth = 0;
@@ -52,7 +52,6 @@ document.addEventListener("DOMContentLoaded", (event) => {
       progressiveWrapper.style.setProperty('--progress', progress.toFixed(2));
     }
 
-    // Calcular qué barra debe brillar
     let barIndex = Math.round((progress / 100) * (totalBars - 1));
 
     if (barIndex !== lastBarPlayed) {
@@ -70,12 +69,12 @@ document.addEventListener("DOMContentLoaded", (event) => {
       lastBarPlayed = barIndex;
     }
 
-    // --- NUEVO: Actualizar la clase is-active en los tabs ---
-    if (tabLinks.length > 0 && totalSlides > 0) {
-      let currentSlideIndex = Math.round((rotation / 360) * (totalSlides - 1));
+    // GESTIÓN DE TABS
+    if (tabLinks.length > 0) {
+      let currentTabIndex = Math.round((rotation / 360) * (tabLinks.length - 1));
       
       tabLinks.forEach((link, index) => {
-        if (index === currentSlideIndex) {
+        if (index === currentTabIndex) {
           link.classList.add('is-active');
         } else {
           link.classList.remove('is-active');
@@ -135,7 +134,6 @@ document.addEventListener("DOMContentLoaded", (event) => {
 
   // --- 7. CONTROLES DRAGGABLE Y CLICKS ---
   
-  // A. Control del dial (Rueda)
   if (radioTop) {
     Draggable.create(radioTop, {
       type: "rotation",
@@ -147,7 +145,6 @@ document.addEventListener("DOMContentLoaded", (event) => {
     });
   }
 
-  // B. Control de la barra de frecuencias
   if (freqLayout) {
     Draggable.create(document.createElement("div"), {
       trigger: freqLayout,
@@ -163,7 +160,6 @@ document.addEventListener("DOMContentLoaded", (event) => {
     freqLayout.style.cursor = "grab";
   }
 
-  // C. Control del Slider
   if (homeMiddle) {
     let startSliderRot = 0; 
 
@@ -218,24 +214,22 @@ document.addEventListener("DOMContentLoaded", (event) => {
     });
   }
 
-  // --- NUEVO D. Eventos de click en los Tabs ---
+  // Eventos de click en los Tabs
   if (tabWrappers.length > 0) {
     tabWrappers.forEach((wrapper, index) => {
-      // Hacemos que el cursor cambie a "pointer" (dedo) en los textos
       wrapper.style.cursor = "pointer";
       
       wrapper.addEventListener('click', (e) => {
-        // Evitamos que un click accidental se interprete como un arrastre de la barra
         e.stopPropagation();
-
+        
+        // Usamos tabWrappers.length para calcular los intervalos exactos
         let currentRot = gsap.getProperty(radioTop, "rotation") || 0;
-        let interval = 360 / (totalSlides - 1);
-        let targetRot = index * interval; // Calcula los grados exactos para ese tab
+        let interval = 360 / (tabWrappers.length - 1);
+        let targetRot = index * interval; 
 
-        // Animamos todo el sistema hacia el slide que hemos clicado
         gsap.to({ rot: currentRot }, {
           rot: targetRot,
-          duration: 0.6, // Un pelín más lento para que el salto largo se vea bien
+          duration: 0.6, 
           ease: "power2.out",
           onUpdate: function() {
             syncSystem(this.targets()[0].rot, 0);
