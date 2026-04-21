@@ -37,10 +37,11 @@ document.addEventListener("DOMContentLoaded", (event) => {
     syncSystem(currentRot, 0); 
   });
 
-  // --- 2. SISTEMA DE SONIDO OPTIMIZADO ---
+  // --- 2. SISTEMA DE SONIDO ANTI-SOLAPAMIENTO ---
   const tickSound = new Audio('https://cdn.prod.website-files.com/69d75a4037abb9fda95564c7/69d7c990b63368c8dcf28ca5_254286__jagadamba__mechanical-switch.mp3'); 
+  tickSound.volume = 0.06; // Volumen fijo en el canal principal
   let lastBarPlayed = -1;
-  let lastTickTime = 0; // Guardará el momento exacto del último sonido emitido
+  let lastTickTime = 0; 
 
   // --- 3. LÓGICA DE UI (BARRAS Y TABS) ---
   function renderUI(interpolatedRotation) {
@@ -68,13 +69,12 @@ document.addEventListener("DOMContentLoaded", (event) => {
         else if (diff === 2) bar.classList.add('is-active-2');
       });
 
-      // --- CONTROL DE SOLAPAMIENTO DE SONIDO (THROTTLE) ---
+      // --- CONTROL DE SONIDO: UN SOLO CANAL ---
       let now = Date.now();
-      // Solo reproduce si han pasado más de 40 milisegundos
-      if (now - lastTickTime > 40) {
-        const sound = tickSound.cloneNode();
-        sound.volume = 0.06; // Volumen ligeramente más bajo para saltos largos
-        sound.play().catch(() => {});
+      if (now - lastTickTime > 50) { // 50ms de respiro
+        // Al poner el tiempo a 0, cortamos en seco cualquier "eco" anterior
+        tickSound.currentTime = 0; 
+        tickSound.play().catch(() => {});
         lastTickTime = now;
       }
 
