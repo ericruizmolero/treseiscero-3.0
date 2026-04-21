@@ -16,10 +16,11 @@ document.addEventListener("DOMContentLoaded", (event) => {
   
   const tabWrappers = document.querySelectorAll('.radio_freq-layout .radio_tab-link-wrapper');
   
-  // NUEVA REFERENCIA: El texto de los grados
-  const radioDreg = document.querySelector('.radio_dreg');
+  // REFERENCIAS DE TEXTO Y LOGO
+  const radioDreg = document.querySelector('.radio_dreg'); // El texto numérico dinámico
+  const logoContainer = document.querySelector('.radio_logo-container'); // 🔥 NUEVO: Contenedor donde pondrás tu SVG/Imagen del logo
 
-  // --- NUEVO: Diccionario de números a palabras ---
+  // Diccionario de números a palabras
   const digitToWord = {
     '0': 'cero', '1': 'uno', '2': 'dos', '3': 'tres', '4': 'cuatro', 
     '5': 'cinco', '6': 'seis', '7': 'siete', '8': 'ocho', '9': 'nueve'
@@ -52,18 +53,31 @@ document.addEventListener("DOMContentLoaded", (event) => {
   let lastBarPlayed = -1;
   let lastTickTime = 0; 
 
-  // --- 3. LÓGICA DE UI (BARRAS, TABS Y TEXTO DREG) ---
+  // --- 3. LÓGICA DE UI (BARRAS, TABS, TEXTO Y LOGO) ---
   function renderUI(interpolatedRotation) {
-    // 1. Actualizar texto de grados (.radio_dreg)
-    if (radioDreg) {
-      // Redondeamos los grados actuales para tener un número exacto (ej. 360)
-      let degrees = Math.round(interpolatedRotation);
-      degrees = Math.max(0, Math.min(360, degrees)); // Aseguramos que no se pase de límites
-      
-      // Convertimos el número a string, separamos sus letras, las traducimos y las unimos
+    // Redondeamos los grados actuales
+    let degrees = Math.round(interpolatedRotation);
+    degrees = Math.max(0, Math.min(360, degrees));
+
+    // --- 🔥 NUEVA LÓGICA DE LOGO DE MARCA "treseiscero" ---
+    // Comprobamos si estamos EXACTAMENTE en el imán de 360 grados (Labs)
+    const isAtLogoSlide = (degrees === 360);
+
+    if (logoContainer && radioDreg) {
+      if (isAtLogoSlide) {
+        // Estamos en 360: Mostramos el logo diseñado, ocultamos el texto genérico
+        gsap.to(logoContainer, { opacity: 1, duration: 0.1, overwrite: "auto" });
+        gsap.to(radioDreg, { opacity: 0, duration: 0.1, overwrite: "auto" });
+      } else {
+        // No estamos en 360: Ocultamos el logo, mostramos el texto numérico dinámico
+        gsap.to(logoContainer, { opacity: 0, duration: 0.1, overwrite: "auto" });
+        gsap.to(radioDreg, { opacity: 1, duration: 0.1, overwrite: "auto" });
+      }
+    }
+
+    // 1. Actualizar texto numérico dinámico (.radio_dreg) si está visible
+    if (radioDreg && !isAtLogoSlide) {
       let textValue = degrees.toString().split('').map(digit => digitToWord[digit]).join('');
-      
-      // Optimización: Solo escribimos en el DOM si el texto ha cambiado
       if (radioDreg.innerText !== textValue) {
         radioDreg.innerText = textValue;
       }
@@ -148,7 +162,6 @@ document.addEventListener("DOMContentLoaded", (event) => {
 
   // --- 6. CONTROLES DRAGGABLE Y CLICKS ---
   
-  // A. Control del dial físico
   if (radioTop) {
     Draggable.create(radioTop, {
       type: "rotation",
@@ -160,7 +173,6 @@ document.addEventListener("DOMContentLoaded", (event) => {
     });
   }
 
-  // B. Control del Slider de tarjetas
   if (homeMiddle) {
     let startSliderRot = 0; 
 
@@ -200,10 +212,8 @@ document.addEventListener("DOMContentLoaded", (event) => {
     homeMiddle.style.cursor = "grab";
   }
 
-  // C. CLIC INTELIGENTE EN TODO EL LAYOUT DE BARRAS
   if (freqLayout) {
     freqLayout.style.cursor = "pointer";
-    
     freqLayout.addEventListener('click', (e) => {
       const rect = freqLayout.getBoundingClientRect();
       const clickX = e.clientX - rect.left;
@@ -219,7 +229,6 @@ document.addEventListener("DOMContentLoaded", (event) => {
     });
   }
 
-  // D. EVENTOS DE CLICK EN LOS TABS
   if (tabWrappers.length > 0) {
     tabWrappers.forEach((wrapper, index) => {
       wrapper.style.cursor = "pointer";
