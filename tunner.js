@@ -15,6 +15,15 @@ document.addEventListener("DOMContentLoaded", (event) => {
   const totalSlides = slides.length; 
   
   const tabWrappers = document.querySelectorAll('.radio_freq-layout .radio_tab-link-wrapper');
+  
+  // NUEVA REFERENCIA: El texto de los grados
+  const radioDreg = document.querySelector('.radio_dreg');
+
+  // --- NUEVO: Diccionario de números a palabras ---
+  const digitToWord = {
+    '0': 'cero', '1': 'uno', '2': 'dos', '3': 'tres', '4': 'cuatro', 
+    '5': 'cinco', '6': 'seis', '7': 'siete', '8': 'ocho', '9': 'nueve'
+  };
 
   // Variables de dimensiones
   let slideWidth = 0;
@@ -43,14 +52,30 @@ document.addEventListener("DOMContentLoaded", (event) => {
   let lastBarPlayed = -1;
   let lastTickTime = 0; 
 
-  // --- 3. LÓGICA DE UI (BARRAS Y TABS) ---
+  // --- 3. LÓGICA DE UI (BARRAS, TABS Y TEXTO DREG) ---
   function renderUI(interpolatedRotation) {
+    // 1. Actualizar texto de grados (.radio_dreg)
+    if (radioDreg) {
+      // Redondeamos los grados actuales para tener un número exacto (ej. 360)
+      let degrees = Math.round(interpolatedRotation);
+      degrees = Math.max(0, Math.min(360, degrees)); // Aseguramos que no se pase de límites
+      
+      // Convertimos el número a string, separamos sus letras, las traducimos y las unimos
+      let textValue = degrees.toString().split('').map(digit => digitToWord[digit]).join('');
+      
+      // Optimización: Solo escribimos en el DOM si el texto ha cambiado
+      if (radioDreg.innerText !== textValue) {
+        radioDreg.innerText = textValue;
+      }
+    }
+
+    // 2. Progreso circular
     let progress = (interpolatedRotation / 360) * 100;
-    
     if (progressiveWrapper) {
       progressiveWrapper.style.setProperty('--progress', progress.toFixed(2));
     }
 
+    // 3. Luces y sonido
     let barIndex = Math.round((progress / 100) * (totalBars - 1));
 
     if (barIndex !== lastBarPlayed) {
@@ -175,32 +200,21 @@ document.addEventListener("DOMContentLoaded", (event) => {
     homeMiddle.style.cursor = "grab";
   }
 
-  // --- NUEVO C. CLIC INTELIGENTE EN TODO EL LAYOUT DE BARRAS ---
+  // C. CLIC INTELIGENTE EN TODO EL LAYOUT DE BARRAS
   if (freqLayout) {
     freqLayout.style.cursor = "pointer";
     
     freqLayout.addEventListener('click', (e) => {
-      // Calculamos las dimensiones exactas del layout en pantalla
       const rect = freqLayout.getBoundingClientRect();
-      
-      // Vemos dónde hizo click el usuario en X (0 a ancho total)
       const clickX = e.clientX - rect.left;
-      
-      // Lo convertimos a un porcentaje del 0 al 1
       let percentage = clickX / rect.width;
-      
-      // Nos aseguramos de que no se pase de los bordes por si clican en los paddings
       percentage = Math.max(0, Math.min(1, percentage));
       
-      // Traducimos el porcentaje a grados (0º a 360º)
       let exactTargetRot = percentage * 360;
-      
-      // Aplicamos el "magnetismo": buscamos el slide más cercano
       let interval = 360 / (totalSlides - 1); 
       let snappedRot = Math.round(exactTargetRot / interval) * interval;
       snappedRot = Math.max(0, Math.min(360, snappedRot));
 
-      // Volamos hacia el imán suavemente
       syncSystem(snappedRot, 0.8);
     });
   }
@@ -210,7 +224,6 @@ document.addEventListener("DOMContentLoaded", (event) => {
     tabWrappers.forEach((wrapper, index) => {
       wrapper.style.cursor = "pointer";
       wrapper.addEventListener('click', (e) => {
-        // Esto detiene el clic para que no active el evento de freqLayout al mismo tiempo
         e.stopPropagation(); 
         let interval = 360 / (tabWrappers.length - 1);
         let targetRot = index * interval; 
