@@ -14,9 +14,7 @@ document.addEventListener("DOMContentLoaded", (event) => {
   const slides = document.querySelectorAll('.home_bento');
   const totalSlides = slides.length; 
   
-  // SELECCIÓN ESTRICTA para evitar duplicados ocultos
   const tabWrappers = document.querySelectorAll('.radio_freq-layout .radio_tab-link-wrapper');
-  const tabLinks = document.querySelectorAll('.radio_freq-layout .radio_tab-link');
 
   // Variables de dimensiones
   let slideWidth = 0;
@@ -44,9 +42,9 @@ document.addEventListener("DOMContentLoaded", (event) => {
   tickSound.volume = 0.1;
   let lastBarPlayed = -1;
 
-  // --- 3. LÓGICA DE UI (FRECUENCIAS Y TABS) ---
-  function renderUI(rotation) {
-    let progress = (rotation / 360) * 100;
+  // --- 3. LÓGICA DE UI (BARRAS Y TABS ESTRICTAMENTE VINCULADOS) ---
+  function renderUI(interpolatedRotation) {
+    let progress = (interpolatedRotation / 360) * 100;
     
     if (progressiveWrapper) {
       progressiveWrapper.style.setProperty('--progress', progress.toFixed(2));
@@ -56,9 +54,21 @@ document.addEventListener("DOMContentLoaded", (event) => {
 
     if (barIndex !== lastBarPlayed) {
       freqBars.forEach((bar, index) => {
+        
+        // 1. Limpiamos clases de la barra
         bar.classList.remove('is-active', 'is-active-1', 'is-active-2');
+        
+        // 2. Buscamos si ESTA barra en concreto tiene un texto dentro y lo limpiamos
+        let tabLink = bar.querySelector('.radio_tab-link');
+        if (tabLink) tabLink.classList.remove('is-active');
+
+        // 3. Aplicamos las nuevas clases según la distancia
         let diff = Math.abs(index - barIndex);
-        if (diff === 0) bar.classList.add('is-active');
+        if (diff === 0) {
+          bar.classList.add('is-active');
+          // ¡MAGIA! El texto se activa EXACTAMENTE a la vez que su barra padre
+          if (tabLink) tabLink.classList.add('is-active'); 
+        } 
         else if (diff === 1) bar.classList.add('is-active-1');
         else if (diff === 2) bar.classList.add('is-active-2');
       });
@@ -68,78 +78,63 @@ document.addEventListener("DOMContentLoaded", (event) => {
       sound.play().catch(() => {});
       lastBarPlayed = barIndex;
     }
+  }
 
-    // GESTIÓN DE TABS
-    if (tabLinks.length > 0) {
-      let currentTabIndex = Math.round((rotation / 360) * (tabLinks.length - 1));
+  // --- 4. SISTEMA CENTRAL DE SINCRONIZACIÓN (FRAME A FRAME) ---
+  function syncSystem(targetRot, duration = 0.15) {
+    let clamped = Math.max(0, Math.min(360, targetRot));
+
+    // Animamos el slider
+    if (homeMiddle && totalSlides > 0) {
+      let progress = clamped / 360;
+      let slideIndexFloat = progress * (totalSlides - 1);
+      let centerIndex = (totalSlides - 1) / 2;
+      let offsetSlides = centerIndex - slideIndexFloat;
+      let moveX = offsetSlides * stepWidth;
       
-      tabLinks.forEach((link, index) => {
-        if (index === currentTabIndex) {
-          link.classList.add('is-active');
-        } else {
-          link.classList.remove('is-active');
-        }
+      gsap.to(homeMiddle, { 
+        x: moveX, 
+        duration: duration, 
+        ease: "power2.out", 
+        overwrite: "auto" 
       });
     }
-  }
 
-  // --- 4. LÓGICA DEL SLIDER ---
-  function updateSlider(rotation, duration) {
-    if (!homeMiddle || totalSlides === 0) return;
-    let progress = rotation / 360;
-    let slideIndexFloat = progress * (totalSlides - 1);
-    let centerIndex = (totalSlides - 1) / 2;
-    let offsetSlides = centerIndex - slideIndexFloat;
-    let moveX = offsetSlides * stepWidth;
-    
-    gsap.to(homeMiddle, { 
-      x: moveX, 
-      duration: duration, 
-      ease: "power2.out", 
-      overwrite: "auto" 
-    });
-  }
-
-  // --- 5. SISTEMA CENTRAL DE SINCRONIZACIÓN ---
-  function syncSystem(newRotation, duration = 0.15) {
-    let clamped = Math.max(0, Math.min(360, newRotation));
-    
+    // Animamos la rueda física y usamos su interpolación para las luces
     gsap.to(radioTop, { 
       rotation: clamped, 
       duration: duration, 
       ease: "power2.out", 
-      overwrite: "auto" 
+      overwrite: "auto",
+      onUpdate: function() {
+        // En cada fotograma de la animación, leemos exactamente en qué grado está la rueda
+        // y se lo pasamos a las luces. ¡Cero desincronización!
+        let currentInterpolatedRot = gsap.getProperty(radioTop, "rotation");
+        renderUI(currentInterpolatedRot);
+      }
     });
-    
-    renderUI(clamped);
-    updateSlider(clamped, duration);
   }
 
-  // --- 6. FUNCIONES DE AUTO-ENCAJE (SNAP) ---
+  // --- 5. FUNCIONES DE AUTO-ENCAJE (SNAP) ---
   function snapToNearestSlide() {
     let currentRot = gsap.getProperty(radioTop, "rotation");
     let interval = 360 / (totalSlides - 1); 
     let targetRot = Math.round(currentRot / interval) * interval;
     targetRot = Math.max(0, Math.min(360, targetRot));
 
-    gsap.to({ rot: currentRot }, {
-      rot: targetRot,
-      duration: 0.5, 
-      ease: "power2.out",
-      onUpdate: function() {
-        syncSystem(this.targets()[0].rot, 0);
-      }
-    });
+    // Llamamos al sistema central pasándole 0.5s para un encaje suave
+    syncSystem(targetRot, 0.5);
   }
 
-  // --- 7. CONTROLES DRAGGABLE Y CLICKS ---
+  // --- 6. CONTROLES DRAGGABLE Y CLICKS ---
   
   if (radioTop) {
     Draggable.create(radioTop, {
       type: "rotation",
       bounds: { minRotation: 0, maxRotation: 360 },
       onDrag: function() {
-        syncSystem(this.rotation); 
+        // Como Draggable mueve la rueda al instante, enviamos duración 0
+        syncSystem(this.rotation, 0); 
       },
       onDragEnd: snapToNearestSlide
     });
@@ -153,7 +148,7 @@ document.addEventListener("DOMContentLoaded", (event) => {
         let sensibilidad = 2; 
         let currentRot = gsap.getProperty(radioTop, "rotation");
         let newRotation = currentRot + (this.deltaX / sensibilidad);
-        syncSystem(newRotation);
+        syncSystem(newRotation, 0.15); // Suavidad mientras arrastras
       },
       onDragEnd: snapToNearestSlide
     });
@@ -178,7 +173,7 @@ document.addEventListener("DOMContentLoaded", (event) => {
         let rotationChange = -(this.deltaX * sensibilidadSlider / safeStep) * interval;
         let newRotation = currentRot + rotationChange;
         
-        syncSystem(newRotation);
+        syncSystem(newRotation, 0.15); // Suavidad mientras arrastras
       },
       onDragEnd: function() {
         let currentRot = gsap.getProperty(radioTop, "rotation");
@@ -186,24 +181,13 @@ document.addEventListener("DOMContentLoaded", (event) => {
         let diff = currentRot - startSliderRot;
         let targetRot;
 
-        if (diff > 5) {
-          targetRot = Math.ceil(currentRot / interval) * interval;
-        } else if (diff < -5) {
-          targetRot = Math.floor(currentRot / interval) * interval;
-        } else {
-          targetRot = Math.round(currentRot / interval) * interval;
-        }
+        if (diff > 5) targetRot = Math.ceil(currentRot / interval) * interval;
+        else if (diff < -5) targetRot = Math.floor(currentRot / interval) * interval;
+        else targetRot = Math.round(currentRot / interval) * interval;
 
         targetRot = Math.max(0, Math.min(360, targetRot));
 
-        gsap.to({ rot: currentRot }, {
-          rot: targetRot,
-          duration: 0.5,
-          ease: "power2.out",
-          onUpdate: function() {
-            syncSystem(this.targets()[0].rot, 0);
-          }
-        });
+        syncSystem(targetRot, 0.5); // Salto final suave
       }
     });
 
@@ -214,7 +198,7 @@ document.addEventListener("DOMContentLoaded", (event) => {
     });
   }
 
-  // Eventos de click en los Tabs
+  // --- EVENTOS DE CLICK EN LOS TABS ---
   if (tabWrappers.length > 0) {
     tabWrappers.forEach((wrapper, index) => {
       wrapper.style.cursor = "pointer";
@@ -222,24 +206,16 @@ document.addEventListener("DOMContentLoaded", (event) => {
       wrapper.addEventListener('click', (e) => {
         e.stopPropagation();
         
-        // Usamos tabWrappers.length para calcular los intervalos exactos
-        let currentRot = gsap.getProperty(radioTop, "rotation") || 0;
         let interval = 360 / (tabWrappers.length - 1);
         let targetRot = index * interval; 
 
-        gsap.to({ rot: currentRot }, {
-          rot: targetRot,
-          duration: 0.6, 
-          ease: "power2.out",
-          onUpdate: function() {
-            syncSystem(this.targets()[0].rot, 0);
-          }
-        });
+        // Vuelo espectacular hasta la pestaña clicada
+        syncSystem(targetRot, 0.6);
       });
     });
   }
 
-  // --- 8. INICIALIZACIÓN ---
+  // --- 7. INICIALIZACIÓN ---
   updateDimensions();
-  syncSystem(180, 0);
+  syncSystem(180, 0); // Inicio instantáneo en el centro
 });
