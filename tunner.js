@@ -3,36 +3,33 @@ document.addEventListener("DOMContentLoaded", (event) => {
 
   gsap.registerPlugin(Draggable);
 
-  // --- 1. REFERENCIAS DEL RADIO ---
+  // --- 1. REFERENCIAS ---
   const radioTop = document.querySelector('.radio_top');
   const progressiveWrapper = document.querySelector('.radio_progresive-embed');
   const freqLayout = document.querySelector('.radio_freq-layout');
   const freqBars = document.querySelectorAll('.radio_freq');
   const totalBars = freqBars.length;
   
-  // --- 2. REFERENCIAS DEL SLIDER ---
   const homeMiddle = document.querySelector('.home_middle');
   const slides = document.querySelectorAll('.home_bento');
-  const totalSlides = slides.length; // En tu estructura son 5
+  const totalSlides = slides.length; 
   
-  // Calculamos el ancho dinámico para el movimiento (optimización)
   let slideWidth = slides.length > 0 ? slides[0].offsetWidth : 0;
 
-  // Actualizamos el ancho si el usuario redimensiona la pantalla
   window.addEventListener('resize', () => {
     if (slides.length > 0) {
       slideWidth = slides[0].offsetWidth;
       let currentRot = gsap.getProperty(radioTop, "rotation") || 180;
-      syncSystem(currentRot); // Reajusta la posición exacta
+      syncSystem(currentRot);
     }
   });
 
-  // --- 3. SONIDO ---
+  // --- 2. SONIDO ---
   const tickSound = new Audio('https://cdn.prod.website-files.com/69d75a4037abb9fda95564c7/69d7c990b63368c8dcf28ca5_254286__jagadamba__mechanical-switch.mp3'); 
   tickSound.volume = 0.1;
   let lastBarPlayed = -1;
 
-  // --- 4. LÓGICA DE UI (FRECUENCIAS) ---
+  // --- 3. LÓGICAS DE UI Y SLIDER ---
   function renderUI(rotation) {
     let progress = (rotation / 360) * 100;
     
@@ -45,7 +42,6 @@ document.addEventListener("DOMContentLoaded", (event) => {
     if (barIndex !== lastBarPlayed) {
       freqBars.forEach((bar, index) => {
         bar.classList.remove('is-active', 'is-active-1', 'is-active-2');
-        
         let diff = Math.abs(index - barIndex);
         if (diff === 0) bar.classList.add('is-active');
         else if (diff === 1) bar.classList.add('is-active-1');
@@ -55,56 +51,62 @@ document.addEventListener("DOMContentLoaded", (event) => {
       const sound = tickSound.cloneNode();
       sound.volume = 0.08;
       sound.play().catch(() => {});
-      
       lastBarPlayed = barIndex;
     }
   }
 
-  // --- 5. LÓGICA DEL SLIDER ---
   function updateSlider(rotation) {
     if (!homeMiddle || totalSlides === 0) return;
-
-    // Convertimos la rotación (0-360) a progreso (0 a 1)
     let progress = rotation / 360;
-
-    // Obtenemos el índice exacto en decimales (ej: 2.5)
     let slideIndexFloat = progress * (totalSlides - 1);
-
-    // Como flexbox centra el layout, el índice 2 es nuestro centro natural (X = 0)
     let centerIndex = (totalSlides - 1) / 2;
-
-    // Diferencia entre el centro natural y el progreso actual
     let offsetSlides = centerIndex - slideIndexFloat;
-
-    // Distancia final en píxeles que debe moverse el contenedor
     let moveX = offsetSlides * slideWidth;
-
-    // Aplicamos el desplazamiento a todo el contenedor
     gsap.set(homeMiddle, { x: moveX });
   }
 
-  // --- 6. SISTEMA CENTRAL DE SINCRONIZACIÓN ---
   function syncSystem(newRotation) {
     let clamped = Math.max(0, Math.min(360, newRotation));
-    
-    // Rotamos el dial físico
     gsap.set(radioTop, { rotation: clamped });
-    
-    // UI del Radio
     renderUI(clamped);
-
-    // Movimiento del Slider
     updateSlider(clamped);
   }
 
-  // --- 7. CONTROLES DRAGGABLE ---
+  // --- 4. NUEVA FUNCIÓN: SNAP AL SOLTAR ---
+  function snapToNearestSlide() {
+    let currentRot = gsap.getProperty(radioTop, "rotation");
+    
+    // Calculamos el tamaño de cada salto en grados (Ej: 360 / 4 = 90)
+    let interval = 360 / (totalSlides - 1); 
+    
+    // Redondeamos al múltiplo más cercano
+    let targetRot = Math.round(currentRot / interval) * interval;
+
+    // Nos aseguramos de que no se pase de los límites
+    targetRot = Math.max(0, Math.min(360, targetRot));
+
+    // Animamos la transición usando GSAP para que sea suave
+    gsap.to({ rot: currentRot }, {
+      rot: targetRot,
+      duration: 0.4,           // Velocidad de encaje (0.4s)
+      ease: "power2.out",      // Curva de aceleración para que se sienta natural
+      onUpdate: function() {
+        // En cada frame de la animación, actualizamos todo el sistema
+        syncSystem(this.targets()[0].rot);
+      }
+    });
+  }
+
+  // --- 5. CONTROLES DRAGGABLE (Actualizados con onDragEnd) ---
   if (radioTop) {
     Draggable.create(radioTop, {
       type: "rotation",
       bounds: { minRotation: 0, maxRotation: 360 },
       onDrag: function() {
         syncSystem(this.rotation);
-      }
+      },
+      // Añadimos el snap al soltar el dial
+      onDragEnd: snapToNearestSlide
     });
   }
 
@@ -117,7 +119,9 @@ document.addEventListener("DOMContentLoaded", (event) => {
         let currentRot = gsap.getProperty(radioTop, "rotation");
         let newRotation = currentRot + (this.deltaX / sensibilidad);
         syncSystem(newRotation);
-      }
+      },
+      // Añadimos el snap al soltar la barra de frecuencias
+      onDragEnd: snapToNearestSlide
     });
   }
 
