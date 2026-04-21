@@ -3,7 +3,7 @@ document.addEventListener("DOMContentLoaded", (event) => {
 
   gsap.registerPlugin(Draggable);
 
-  // --- 1. REFERENCIAS ---
+  // --- 1. REFERENCIAS DEL DOM ---
   const radioTop = document.querySelector('.radio_top');
   const progressiveWrapper = document.querySelector('.radio_progresive-embed');
   const freqLayout = document.querySelector('.radio_freq-layout');
@@ -14,8 +14,10 @@ document.addEventListener("DOMContentLoaded", (event) => {
   const slides = document.querySelectorAll('.home_bento');
   const totalSlides = slides.length; 
   
+  // Ancho dinámico para el movimiento de las tarjetas
   let slideWidth = slides.length > 0 ? slides[0].offsetWidth : 0;
 
+  // Actualizamos el ancho si el usuario redimensiona la pantalla
   window.addEventListener('resize', () => {
     if (slides.length > 0) {
       slideWidth = slides[0].offsetWidth;
@@ -24,12 +26,12 @@ document.addEventListener("DOMContentLoaded", (event) => {
     }
   });
 
-  // --- 2. SONIDO ---
+  // --- 2. SISTEMA DE SONIDO ---
   const tickSound = new Audio('https://cdn.prod.website-files.com/69d75a4037abb9fda95564c7/69d7c990b63368c8dcf28ca5_254286__jagadamba__mechanical-switch.mp3'); 
   tickSound.volume = 0.1;
   let lastBarPlayed = -1;
 
-  // --- 3. LÓGICAS DE UI Y SLIDER ---
+  // --- 3. LÓGICA DE UI (FRECUENCIAS) ---
   function renderUI(rotation) {
     let progress = (rotation / 360) * 100;
     
@@ -55,6 +57,7 @@ document.addEventListener("DOMContentLoaded", (event) => {
     }
   }
 
+  // --- 4. LÓGICA DEL SLIDER ---
   function updateSlider(rotation) {
     if (!homeMiddle || totalSlides === 0) return;
     let progress = rotation / 360;
@@ -65,6 +68,7 @@ document.addEventListener("DOMContentLoaded", (event) => {
     gsap.set(homeMiddle, { x: moveX });
   }
 
+  // --- 5. SISTEMA CENTRAL DE SINCRONIZACIÓN ---
   function syncSystem(newRotation) {
     let clamped = Math.max(0, Math.min(360, newRotation));
     gsap.set(radioTop, { rotation: clamped });
@@ -72,32 +76,26 @@ document.addEventListener("DOMContentLoaded", (event) => {
     updateSlider(clamped);
   }
 
-  // --- 4. NUEVA FUNCIÓN: SNAP AL SOLTAR ---
+  // --- 6. FUNCIÓN DE AUTO-ENCAJE (SNAP) ---
   function snapToNearestSlide() {
     let currentRot = gsap.getProperty(radioTop, "rotation");
-    
-    // Calculamos el tamaño de cada salto en grados (Ej: 360 / 4 = 90)
     let interval = 360 / (totalSlides - 1); 
-    
-    // Redondeamos al múltiplo más cercano
     let targetRot = Math.round(currentRot / interval) * interval;
-
-    // Nos aseguramos de que no se pase de los límites
     targetRot = Math.max(0, Math.min(360, targetRot));
 
-    // Animamos la transición usando GSAP para que sea suave
     gsap.to({ rot: currentRot }, {
       rot: targetRot,
-      duration: 0.4,           // Velocidad de encaje (0.4s)
-      ease: "power2.out",      // Curva de aceleración para que se sienta natural
+      duration: 0.4,
+      ease: "power2.out",
       onUpdate: function() {
-        // En cada frame de la animación, actualizamos todo el sistema
         syncSystem(this.targets()[0].rot);
       }
     });
   }
 
-  // --- 5. CONTROLES DRAGGABLE (Actualizados con onDragEnd) ---
+  // --- 7. CONTROLES DRAGGABLE ---
+  
+  // A. Control del dial (Rueda)
   if (radioTop) {
     Draggable.create(radioTop, {
       type: "rotation",
@@ -105,11 +103,11 @@ document.addEventListener("DOMContentLoaded", (event) => {
       onDrag: function() {
         syncSystem(this.rotation);
       },
-      // Añadimos el snap al soltar el dial
       onDragEnd: snapToNearestSlide
     });
   }
 
+  // B. Control de la barra de frecuencias
   if (freqLayout) {
     Draggable.create(document.createElement("div"), {
       trigger: freqLayout,
@@ -120,11 +118,37 @@ document.addEventListener("DOMContentLoaded", (event) => {
         let newRotation = currentRot + (this.deltaX / sensibilidad);
         syncSystem(newRotation);
       },
-      // Añadimos el snap al soltar la barra de frecuencias
       onDragEnd: snapToNearestSlide
+    });
+    freqLayout.style.cursor = "grab";
+  }
+
+  // C. Control del propio Slider (Tarjetas)
+  if (homeMiddle) {
+    Draggable.create(document.createElement("div"), {
+      trigger: homeMiddle,
+      type: "x",
+      onDrag: function() {
+        let safeWidth = slideWidth || 1; 
+        let currentRot = gsap.getProperty(radioTop, "rotation");
+        let interval = 360 / (totalSlides - 1); 
+        
+        let rotationChange = -(this.deltaX / safeWidth) * interval;
+        let newRotation = currentRot + rotationChange;
+        
+        syncSystem(newRotation);
+      },
+      onDragEnd: snapToNearestSlide
+    });
+
+    homeMiddle.style.cursor = "grab";
+    homeMiddle.addEventListener("mousedown", () => homeMiddle.style.cursor = "grabbing");
+    window.addEventListener("mouseup", () => {
+        if(homeMiddle.style.cursor === "grabbing") homeMiddle.style.cursor = "grab";
     });
   }
 
-  // Inicialización: 180 grados = 50% = Centrado exacto en la Slide 3
+  // --- 8. INICIALIZACIÓN ---
+  // 180 grados = 50% = Centrado exacto en la tarjeta del medio (Slide 3)
   syncSystem(180);
 });
