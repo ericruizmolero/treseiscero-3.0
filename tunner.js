@@ -42,7 +42,7 @@ document.addEventListener("DOMContentLoaded", (event) => {
   tickSound.volume = 0.1;
   let lastBarPlayed = -1;
 
-  // --- 3. LÓGICA DE UI (BARRAS Y TABS ESTRICTAMENTE VINCULADOS) ---
+  // --- 3. LÓGICA DE UI (BARRAS Y TABS) ---
   function renderUI(interpolatedRotation) {
     let progress = (interpolatedRotation / 360) * 100;
     
@@ -54,19 +54,14 @@ document.addEventListener("DOMContentLoaded", (event) => {
 
     if (barIndex !== lastBarPlayed) {
       freqBars.forEach((bar, index) => {
-        
-        // 1. Limpiamos clases de la barra
         bar.classList.remove('is-active', 'is-active-1', 'is-active-2');
         
-        // 2. Buscamos si ESTA barra en concreto tiene un texto dentro y lo limpiamos
         let tabLink = bar.querySelector('.radio_tab-link');
         if (tabLink) tabLink.classList.remove('is-active');
 
-        // 3. Aplicamos las nuevas clases según la distancia
         let diff = Math.abs(index - barIndex);
         if (diff === 0) {
           bar.classList.add('is-active');
-          // ¡MAGIA! El texto se activa EXACTAMENTE a la vez que su barra padre
           if (tabLink) tabLink.classList.add('is-active'); 
         } 
         else if (diff === 1) bar.classList.add('is-active-1');
@@ -80,11 +75,11 @@ document.addEventListener("DOMContentLoaded", (event) => {
     }
   }
 
-  // --- 4. SISTEMA CENTRAL DE SINCRONIZACIÓN (FRAME A FRAME) ---
-  function syncSystem(targetRot, duration = 0.15) {
+  // --- 4. SISTEMA CENTRAL DE SINCRONIZACIÓN (CON SMOOTHNESS AUMENTADO) ---
+  function syncSystem(targetRot, duration = 0.6) {
     let clamped = Math.max(0, Math.min(360, targetRot));
 
-    // Animamos el slider
+    // Animamos el slider con el tiempo solicitado (0.6s por defecto)
     if (homeMiddle && totalSlides > 0) {
       let progress = clamped / 360;
       let slideIndexFloat = progress * (totalSlides - 1);
@@ -100,30 +95,29 @@ document.addEventListener("DOMContentLoaded", (event) => {
       });
     }
 
-    // Animamos la rueda física y usamos su interpolación para las luces
+    // Animamos la rueda física
     gsap.to(radioTop, { 
       rotation: clamped, 
       duration: duration, 
       ease: "power2.out", 
       overwrite: "auto",
       onUpdate: function() {
-        // En cada fotograma de la animación, leemos exactamente en qué grado está la rueda
-        // y se lo pasamos a las luces. ¡Cero desincronización!
+        // Las luces siguen milimétricamente la posición de la rueda mientras se mueve suavemente
         let currentInterpolatedRot = gsap.getProperty(radioTop, "rotation");
         renderUI(currentInterpolatedRot);
       }
     });
   }
 
-  // --- 5. FUNCIONES DE AUTO-ENCAJE (SNAP) ---
+  // --- 5. FUNCIÓN DE AUTO-ENCAJE (SNAP) ---
   function snapToNearestSlide() {
     let currentRot = gsap.getProperty(radioTop, "rotation");
     let interval = 360 / (totalSlides - 1); 
     let targetRot = Math.round(currentRot / interval) * interval;
     targetRot = Math.max(0, Math.min(360, targetRot));
 
-    // Llamamos al sistema central pasándole 0.5s para un encaje suave
-    syncSystem(targetRot, 0.5);
+    // El encaje final lo hacemos aún más suave (0.8s) para que se sienta premium
+    syncSystem(targetRot, 0.8);
   }
 
   // --- 6. CONTROLES DRAGGABLE Y CLICKS ---
@@ -133,8 +127,8 @@ document.addEventListener("DOMContentLoaded", (event) => {
       type: "rotation",
       bounds: { minRotation: 0, maxRotation: 360 },
       onDrag: function() {
-        // Como Draggable mueve la rueda al instante, enviamos duración 0
-        syncSystem(this.rotation, 0); 
+        // En el dial físico queremos respuesta inmediata para no perder el control
+        syncSystem(this.rotation, 0.1); 
       },
       onDragEnd: snapToNearestSlide
     });
@@ -148,7 +142,7 @@ document.addEventListener("DOMContentLoaded", (event) => {
         let sensibilidad = 2; 
         let currentRot = gsap.getProperty(radioTop, "rotation");
         let newRotation = currentRot + (this.deltaX / sensibilidad);
-        syncSystem(newRotation, 0.15); // Suavidad mientras arrastras
+        syncSystem(newRotation, 0.4); // Suavidad media durante el arrastre
       },
       onDragEnd: snapToNearestSlide
     });
@@ -173,7 +167,8 @@ document.addEventListener("DOMContentLoaded", (event) => {
         let rotationChange = -(this.deltaX * sensibilidadSlider / safeStep) * interval;
         let newRotation = currentRot + rotationChange;
         
-        syncSystem(newRotation, 0.15); // Suavidad mientras arrastras
+        // Aplicamos los 0.6s de suavidad mientras arrastras el slider
+        syncSystem(newRotation, 0.6); 
       },
       onDragEnd: function() {
         let currentRot = gsap.getProperty(radioTop, "rotation");
@@ -187,35 +182,27 @@ document.addEventListener("DOMContentLoaded", (event) => {
 
         targetRot = Math.max(0, Math.min(360, targetRot));
 
-        syncSystem(targetRot, 0.5); // Salto final suave
+        syncSystem(targetRot, 0.8); // Snap final extra fluido
       }
     });
 
     homeMiddle.style.cursor = "grab";
-    homeMiddle.addEventListener("mousedown", () => homeMiddle.style.cursor = "grabbing");
-    window.addEventListener("mouseup", () => {
-        if(homeMiddle.style.cursor === "grabbing") homeMiddle.style.cursor = "grab";
-    });
   }
 
-  // --- EVENTOS DE CLICK EN LOS TABS ---
+  // EVENTOS DE CLICK EN LOS TABS
   if (tabWrappers.length > 0) {
     tabWrappers.forEach((wrapper, index) => {
       wrapper.style.cursor = "pointer";
-      
       wrapper.addEventListener('click', (e) => {
         e.stopPropagation();
-        
         let interval = 360 / (tabWrappers.length - 1);
         let targetRot = index * interval; 
-
-        // Vuelo espectacular hasta la pestaña clicada
-        syncSystem(targetRot, 0.6);
+        syncSystem(targetRot, 0.8); // Navegación por tabs muy suave
       });
     });
   }
 
   // --- 7. INICIALIZACIÓN ---
   updateDimensions();
-  syncSystem(180, 0); // Inicio instantáneo en el centro
+  syncSystem(180, 0); // Inicio instantáneo sin transición
 });
