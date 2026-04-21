@@ -14,6 +14,11 @@ document.addEventListener("DOMContentLoaded", (event) => {
   const slides = document.querySelectorAll('.home_bento');
   const totalSlides = slides.length; 
   
+  // NUEVAS REFERENCIAS: Los textos/tabs
+  const tabWrappers = document.querySelectorAll('.radio_tab-link-wrapper');
+  const tabLinks = document.querySelectorAll('.radio_tab-link');
+
+  // Variables de dimensiones
   let slideWidth = 0;
   let slideGap = 0;
   let stepWidth = 0; 
@@ -39,7 +44,7 @@ document.addEventListener("DOMContentLoaded", (event) => {
   tickSound.volume = 0.1;
   let lastBarPlayed = -1;
 
-  // --- 3. LÓGICA DE UI (FRECUENCIAS) ---
+  // --- 3. LÓGICA DE UI (FRECUENCIAS Y TABS) ---
   function renderUI(rotation) {
     let progress = (rotation / 360) * 100;
     
@@ -47,6 +52,7 @@ document.addEventListener("DOMContentLoaded", (event) => {
       progressiveWrapper.style.setProperty('--progress', progress.toFixed(2));
     }
 
+    // Calcular qué barra debe brillar
     let barIndex = Math.round((progress / 100) * (totalBars - 1));
 
     if (barIndex !== lastBarPlayed) {
@@ -62,6 +68,19 @@ document.addEventListener("DOMContentLoaded", (event) => {
       sound.volume = 0.08;
       sound.play().catch(() => {});
       lastBarPlayed = barIndex;
+    }
+
+    // --- NUEVO: Actualizar la clase is-active en los tabs ---
+    if (tabLinks.length > 0 && totalSlides > 0) {
+      let currentSlideIndex = Math.round((rotation / 360) * (totalSlides - 1));
+      
+      tabLinks.forEach((link, index) => {
+        if (index === currentSlideIndex) {
+          link.classList.add('is-active');
+        } else {
+          link.classList.remove('is-active');
+        }
+      });
     }
   }
 
@@ -82,9 +101,8 @@ document.addEventListener("DOMContentLoaded", (event) => {
     });
   }
 
-  // --- 5. SISTEMA CENTRAL DE SINCRONIZACIÓN (CON LÍMITES) ---
+  // --- 5. SISTEMA CENTRAL DE SINCRONIZACIÓN ---
   function syncSystem(newRotation, duration = 0.15) {
-    // Volvemos a limitar la rotación entre 0 y 360
     let clamped = Math.max(0, Math.min(360, newRotation));
     
     gsap.to(radioTop, { 
@@ -103,8 +121,6 @@ document.addEventListener("DOMContentLoaded", (event) => {
     let currentRot = gsap.getProperty(radioTop, "rotation");
     let interval = 360 / (totalSlides - 1); 
     let targetRot = Math.round(currentRot / interval) * interval;
-    
-    // Restauramos el límite para que no intente encajar más allá de las esquinas
     targetRot = Math.max(0, Math.min(360, targetRot));
 
     gsap.to({ rot: currentRot }, {
@@ -117,13 +133,13 @@ document.addEventListener("DOMContentLoaded", (event) => {
     });
   }
 
-  // --- 7. CONTROLES DRAGGABLE ---
+  // --- 7. CONTROLES DRAGGABLE Y CLICKS ---
   
   // A. Control del dial (Rueda)
   if (radioTop) {
     Draggable.create(radioTop, {
       type: "rotation",
-      bounds: { minRotation: 0, maxRotation: 360 }, // Restauramos el tope físico
+      bounds: { minRotation: 0, maxRotation: 360 },
       onDrag: function() {
         syncSystem(this.rotation); 
       },
@@ -182,7 +198,6 @@ document.addEventListener("DOMContentLoaded", (event) => {
           targetRot = Math.round(currentRot / interval) * interval;
         }
 
-        // Restauramos el límite aquí también
         targetRot = Math.max(0, Math.min(360, targetRot));
 
         gsap.to({ rot: currentRot }, {
@@ -200,6 +215,33 @@ document.addEventListener("DOMContentLoaded", (event) => {
     homeMiddle.addEventListener("mousedown", () => homeMiddle.style.cursor = "grabbing");
     window.addEventListener("mouseup", () => {
         if(homeMiddle.style.cursor === "grabbing") homeMiddle.style.cursor = "grab";
+    });
+  }
+
+  // --- NUEVO D. Eventos de click en los Tabs ---
+  if (tabWrappers.length > 0) {
+    tabWrappers.forEach((wrapper, index) => {
+      // Hacemos que el cursor cambie a "pointer" (dedo) en los textos
+      wrapper.style.cursor = "pointer";
+      
+      wrapper.addEventListener('click', (e) => {
+        // Evitamos que un click accidental se interprete como un arrastre de la barra
+        e.stopPropagation();
+
+        let currentRot = gsap.getProperty(radioTop, "rotation") || 0;
+        let interval = 360 / (totalSlides - 1);
+        let targetRot = index * interval; // Calcula los grados exactos para ese tab
+
+        // Animamos todo el sistema hacia el slide que hemos clicado
+        gsap.to({ rot: currentRot }, {
+          rot: targetRot,
+          duration: 0.6, // Un pelín más lento para que el salto largo se vea bien
+          ease: "power2.out",
+          onUpdate: function() {
+            syncSystem(this.targets()[0].rot, 0);
+          }
+        });
+      });
     });
   }
 
