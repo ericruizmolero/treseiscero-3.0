@@ -16,9 +16,7 @@ document.addEventListener("DOMContentLoaded", (event) => {
   
   const tabWrappers = document.querySelectorAll('.radio_freq-layout .radio_tab-link-wrapper');
   
-  // REFERENCIAS DE TEXTO Y LOGO
   const radioDreg = document.querySelector('.radio_dreg'); 
-  const logoContainer = document.querySelector('.radio_logo-container'); 
 
   // Diccionario de números a palabras
   const digitToWord = {
@@ -43,38 +41,31 @@ document.addEventListener("DOMContentLoaded", (event) => {
 
   window.addEventListener('resize', () => {
     updateDimensions();
-    // Al redimensionar, mantenemos la posición actual sin animaciones
     let currentRot = gsap.getProperty(radioTop, "rotation") || 0;
     syncSystem(currentRot, 0); 
   });
 
-  // --- 2. SISTEMA DE SONIDO ANTI-SOLAPAMIENTO ---
+  // --- 2. SISTEMA DE SONIDO ---
   const tickSound = new Audio('https://cdn.prod.website-files.com/69d75a4037abb9fda95564c7/69d7c990b63368c8dcf28ca5_254286__jagadamba__mechanical-switch.mp3'); 
   tickSound.volume = 0.06; 
   let lastBarPlayed = -1;
   let lastTickTime = 0; 
 
-  // --- 3. LÓGICA DE UI (BARRAS, TABS, TEXTO Y LOGO) ---
+  // --- 3. LÓGICA DE UI ---
   function renderUI(interpolatedRotation) {
     let degrees = Math.round(interpolatedRotation);
     degrees = Math.max(0, Math.min(360, degrees));
 
-    // LÓGICA DE LOGO "treseiscero" EN 360º
-    const isAtLogoSlide = (degrees === 360);
-
-    if (logoContainer && radioDreg) {
-      if (isAtLogoSlide) {
-        gsap.to(logoContainer, { opacity: 1, duration: 0.1, overwrite: "auto" });
-        gsap.to(radioDreg, { opacity: 0, duration: 0.1, overwrite: "auto" });
+    // LÓGICA DE TEXTO DE GRADOS (.radio_dreg)
+    if (radioDreg) {
+      let textValue;
+      // Regla de seguridad: Si estamos al final, forzamos siempre "treseiscero"
+      if (degrees >= 359) {
+        textValue = 'treseiscero';
       } else {
-        gsap.to(logoContainer, { opacity: 0, duration: 0.1, overwrite: "auto" });
-        gsap.to(radioDreg, { opacity: 1, duration: 0.1, overwrite: "auto" });
+        textValue = degrees.toString().split('').map(digit => digitToWord[digit]).join('');
       }
-    }
 
-    // Actualizar texto dinámico .radio_dreg
-    if (radioDreg && !isAtLogoSlide) {
-      let textValue = degrees.toString().split('').map(digit => digitToWord[digit]).join('');
       if (radioDreg.innerText !== textValue) {
         radioDreg.innerText = textValue;
       }
@@ -118,7 +109,6 @@ document.addEventListener("DOMContentLoaded", (event) => {
   function syncSystem(targetRot, duration = 0.6) {
     let clamped = Math.max(0, Math.min(360, targetRot));
 
-    // Movimiento del Slider
     if (homeMiddle && totalSlides > 0) {
       let progress = clamped / 360;
       let slideIndexFloat = progress * (totalSlides - 1);
@@ -134,7 +124,6 @@ document.addEventListener("DOMContentLoaded", (event) => {
       });
     }
 
-    // Animación de la rueda y feedback UI
     gsap.to(radioTop, { 
       rotation: clamped, 
       duration: duration, 
@@ -238,6 +227,5 @@ document.addEventListener("DOMContentLoaded", (event) => {
 
   // --- 7. INICIALIZACIÓN ---
   updateDimensions();
-  // 🔥 CAMBIADO: Ahora todo el sistema empieza en 0 grados (Manifesto / cero)
   syncSystem(0, 0); 
 });
