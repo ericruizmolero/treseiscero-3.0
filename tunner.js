@@ -17,30 +17,22 @@ document.addEventListener("DOMContentLoaded", (event) => {
   // Variables de dimensiones
   let slideWidth = 0;
   let slideGap = 0;
-  let stepWidth = 0; // El ancho total de la tarjeta + el gap
+  let stepWidth = 0; 
 
-  // Función para recalcular dimensiones dinámicamente
   function updateDimensions() {
     if (slides.length > 0 && homeMiddle) {
       slideWidth = slides[0].offsetWidth;
-      
-      // Leemos el valor exacto del gap desde el CSS calculado por el navegador
       let computedStyle = window.getComputedStyle(homeMiddle);
       let gapValue = computedStyle.getPropertyValue('gap') || computedStyle.gap;
-      
-      // Si el gap es 'normal' o no existe, usamos 0. Si existe, lo pasamos a número.
       slideGap = (gapValue && gapValue !== 'normal') ? parseFloat(gapValue) : 0;
-      
-      // La distancia real entre el centro de una tarjeta y la siguiente
       stepWidth = slideWidth + slideGap;
     }
   }
 
-  // Actualizamos las dimensiones si el usuario redimensiona o gira la pantalla (mobile)
   window.addEventListener('resize', () => {
     updateDimensions();
     let currentRot = gsap.getProperty(radioTop, "rotation") || 180;
-    syncSystem(currentRot, 0); // Reajuste instantáneo sin duración
+    syncSystem(currentRot, 0); 
   });
 
   // --- 2. SISTEMA DE SONIDO ---
@@ -81,8 +73,6 @@ document.addEventListener("DOMContentLoaded", (event) => {
     let slideIndexFloat = progress * (totalSlides - 1);
     let centerIndex = (totalSlides - 1) / 2;
     let offsetSlides = centerIndex - slideIndexFloat;
-    
-    // Ahora multiplicamos por el "stepWidth" que ya incluye el gap
     let moveX = offsetSlides * stepWidth;
     
     gsap.to(homeMiddle, { 
@@ -108,7 +98,9 @@ document.addEventListener("DOMContentLoaded", (event) => {
     updateSlider(clamped, duration);
   }
 
-  // --- 6. FUNCIÓN DE AUTO-ENCAJE (SNAP) ---
+  // --- 6. FUNCIONES DE AUTO-ENCAJE (SNAP) ---
+  
+  // Snap magnético para Dial y Barra de Frecuencias
   function snapToNearestSlide() {
     let currentRot = gsap.getProperty(radioTop, "rotation");
     let interval = 360 / (totalSlides - 1); 
@@ -127,6 +119,7 @@ document.addEventListener("DOMContentLoaded", (event) => {
 
   // --- 7. CONTROLES DRAGGABLE ---
   
+  // A. Control del dial (Rueda) - Snap magnético normal
   if (radioTop) {
     Draggable.create(radioTop, {
       type: "rotation",
@@ -138,6 +131,7 @@ document.addEventListener("DOMContentLoaded", (event) => {
     });
   }
 
+  // B. Control de la barra de frecuencias - Snap magnético normal
   if (freqLayout) {
     Draggable.create(document.createElement("div"), {
       trigger: freqLayout,
@@ -153,12 +147,18 @@ document.addEventListener("DOMContentLoaded", (event) => {
     freqLayout.style.cursor = "grab";
   }
 
+  // C. Control del Slider - Lógica tipo "Swipe/Flick"
   if (homeMiddle) {
+    let startSliderRot = 0; // Guardará la posición al iniciar el click
+
     Draggable.create(document.createElement("div"), {
       trigger: homeMiddle,
       type: "x",
+      onDragStart: function() {
+        // Registramos en qué grado estamos justo antes de arrastrar
+        startSliderRot = gsap.getProperty(radioTop, "rotation");
+      },
       onDrag: function() {
-        // Usamos el paso completo (ancho + gap) para calcular la sensibilidad
         let safeStep = stepWidth || 1; 
         let currentRot = gsap.getProperty(radioTop, "rotation");
         let interval = 360 / (totalSlides - 1); 
@@ -169,7 +169,36 @@ document.addEventListener("DOMContentLoaded", (event) => {
         
         syncSystem(newRotation);
       },
-      onDragEnd: snapToNearestSlide
+      onDragEnd: function() {
+        let currentRot = gsap.getProperty(radioTop, "rotation");
+        let interval = 360 / (totalSlides - 1); 
+        
+        // ¿Cuánto hemos rotado en total durante este arrastre?
+        let diff = currentRot - startSliderRot;
+        let targetRot;
+
+        // Umbral muy bajo (5 grados) para eliminar la "fricción". 
+        // Si arrastras mínimamente, fuerza el salto a la siguiente/anterior.
+        if (diff > 5) {
+          targetRot = Math.ceil(currentRot / interval) * interval;
+        } else if (diff < -5) {
+          targetRot = Math.floor(currentRot / interval) * interval;
+        } else {
+          // Solo si apenas rozas la pantalla (menos de 5 grados), vuelve al origen
+          targetRot = Math.round(currentRot / interval) * interval;
+        }
+
+        targetRot = Math.max(0, Math.min(360, targetRot));
+
+        gsap.to({ rot: currentRot }, {
+          rot: targetRot,
+          duration: 0.5,
+          ease: "power2.out",
+          onUpdate: function() {
+            syncSystem(this.targets()[0].rot, 0);
+          }
+        });
+      }
     });
 
     homeMiddle.style.cursor = "grab";
@@ -180,8 +209,6 @@ document.addEventListener("DOMContentLoaded", (event) => {
   }
 
   // --- 8. INICIALIZACIÓN ---
-  // Calculamos medidas iniciales antes de renderizar
   updateDimensions();
-  // 180 grados = 50% = Centrado exacto en la tarjeta del medio (Slide 3)
   syncSystem(180, 0);
 });
