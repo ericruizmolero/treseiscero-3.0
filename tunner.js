@@ -59,11 +59,14 @@ document.addEventListener("DOMContentLoaded", (event) => {
     // LÓGICA DE TEXTO DE GRADOS (.radio_dreg)
     if (radioDreg) {
       let textValue;
-      // Regla de seguridad: Si estamos al final, forzamos siempre "treseiscero"
+      // Regla de seguridad final
       if (degrees >= 359) {
         textValue = 'treseiscero';
       } else {
+        // Traducimos los dígitos a palabras
         textValue = degrees.toString().split('').map(digit => digitToWord[digit]).join('');
+        // 🔥 NUEVO: Fusionamos cualquier doble 's' en una sola (dossiete -> dosiete)
+        textValue = textValue.replace(/ss/g, 's');
       }
 
       if (radioDreg.innerText !== textValue) {
