@@ -14,7 +14,6 @@ document.addEventListener("DOMContentLoaded", (event) => {
   const slides = document.querySelectorAll('.home_bento');
   const totalSlides = slides.length; 
   
-  // Variables de dimensiones
   let slideWidth = 0;
   let slideGap = 0;
   let stepWidth = 0; 
@@ -41,8 +40,8 @@ document.addEventListener("DOMContentLoaded", (event) => {
   let lastBarPlayed = -1;
 
   // --- 3. LÓGICA DE UI (FRECUENCIAS) ---
-  function renderUI(rotation) {
-    let progress = (rotation / 360) * 100;
+  function renderUI(logicalRot) {
+    let progress = (logicalRot / 360) * 100;
     
     if (progressiveWrapper) {
       progressiveWrapper.style.setProperty('--progress', progress.toFixed(2));
@@ -67,9 +66,9 @@ document.addEventListener("DOMContentLoaded", (event) => {
   }
 
   // --- 4. LÓGICA DEL SLIDER ---
-  function updateSlider(rotation, duration) {
+  function updateSlider(logicalRot, duration) {
     if (!homeMiddle || totalSlides === 0) return;
-    let progress = rotation / 360;
+    let progress = logicalRot / 360;
     let slideIndexFloat = progress * (totalSlides - 1);
     let centerIndex = (totalSlides - 1) / 2;
     let offsetSlides = centerIndex - slideIndexFloat;
@@ -83,29 +82,30 @@ document.addEventListener("DOMContentLoaded", (event) => {
     });
   }
 
-  // --- 5. SISTEMA CENTRAL DE SINCRONIZACIÓN ---
+  // --- 5. SISTEMA CENTRAL DE SINCRONIZACIÓN (INFINITO) ---
   function syncSystem(newRotation, duration = 0.15) {
-    let clamped = Math.max(0, Math.min(360, newRotation));
-    
+    // 1. El dial físico puede girar infinitamente sin límites
     gsap.to(radioTop, { 
-      rotation: clamped, 
+      rotation: newRotation, 
       duration: duration, 
       ease: "power2.out", 
       overwrite: "auto" 
     });
     
-    renderUI(clamped);
-    updateSlider(clamped, duration);
+    // 2. Para la UI y el Slider, usamos "wrap" para mantener el cálculo entre 0 y 360
+    // Esto hace que un giro de 370º se traduzca como 10º para la lógica interna.
+    let logicalRot = gsap.utils.wrap(0, 360, newRotation);
+    
+    renderUI(logicalRot);
+    updateSlider(logicalRot, duration);
   }
 
-  // --- 6. FUNCIONES DE AUTO-ENCAJE (SNAP) ---
-  
-  // Snap magnético para Dial y Barra de Frecuencias
+  // --- 6. FUNCIONES DE AUTO-ENCAJE (SNAP INFINITO) ---
   function snapToNearestSlide() {
     let currentRot = gsap.getProperty(radioTop, "rotation");
     let interval = 360 / (totalSlides - 1); 
     let targetRot = Math.round(currentRot / interval) * interval;
-    targetRot = Math.max(0, Math.min(360, targetRot));
+    // Eliminado: targetRot = Math.max(0, Math.min(360, targetRot)); -> Ahora es infinito
 
     gsap.to({ rot: currentRot }, {
       rot: targetRot,
@@ -119,11 +119,11 @@ document.addEventListener("DOMContentLoaded", (event) => {
 
   // --- 7. CONTROLES DRAGGABLE ---
   
-  // A. Control del dial (Rueda) - Snap magnético normal
+  // A. Control del dial (Rueda) - Bounds eliminados
   if (radioTop) {
     Draggable.create(radioTop, {
       type: "rotation",
-      bounds: { minRotation: 0, maxRotation: 360 },
+      // bounds: { minRotation: 0, maxRotation: 360 }, // <-- Comentado para permitir loop
       onDrag: function() {
         syncSystem(this.rotation); 
       },
@@ -131,7 +131,7 @@ document.addEventListener("DOMContentLoaded", (event) => {
     });
   }
 
-  // B. Control de la barra de frecuencias - Snap magnético normal
+  // B. Control de la barra de frecuencias
   if (freqLayout) {
     Draggable.create(document.createElement("div"), {
       trigger: freqLayout,
@@ -147,15 +147,14 @@ document.addEventListener("DOMContentLoaded", (event) => {
     freqLayout.style.cursor = "grab";
   }
 
-  // C. Control del Slider - Lógica tipo "Swipe/Flick"
+  // C. Control del Slider
   if (homeMiddle) {
-    let startSliderRot = 0; // Guardará la posición al iniciar el click
+    let startSliderRot = 0; 
 
     Draggable.create(document.createElement("div"), {
       trigger: homeMiddle,
       type: "x",
       onDragStart: function() {
-        // Registramos en qué grado estamos justo antes de arrastrar
         startSliderRot = gsap.getProperty(radioTop, "rotation");
       },
       onDrag: function() {
@@ -172,23 +171,18 @@ document.addEventListener("DOMContentLoaded", (event) => {
       onDragEnd: function() {
         let currentRot = gsap.getProperty(radioTop, "rotation");
         let interval = 360 / (totalSlides - 1); 
-        
-        // ¿Cuánto hemos rotado en total durante este arrastre?
         let diff = currentRot - startSliderRot;
         let targetRot;
 
-        // Umbral muy bajo (5 grados) para eliminar la "fricción". 
-        // Si arrastras mínimamente, fuerza el salto a la siguiente/anterior.
         if (diff > 5) {
           targetRot = Math.ceil(currentRot / interval) * interval;
         } else if (diff < -5) {
           targetRot = Math.floor(currentRot / interval) * interval;
         } else {
-          // Solo si apenas rozas la pantalla (menos de 5 grados), vuelve al origen
           targetRot = Math.round(currentRot / interval) * interval;
         }
 
-        targetRot = Math.max(0, Math.min(360, targetRot));
+        // Eliminado el Math.max/min para permitir arrastre infinito
 
         gsap.to({ rot: currentRot }, {
           rot: targetRot,
