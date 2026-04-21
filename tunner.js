@@ -39,7 +39,7 @@ document.addEventListener("DOMContentLoaded", (event) => {
 
   // --- 2. SISTEMA DE SONIDO ANTI-SOLAPAMIENTO ---
   const tickSound = new Audio('https://cdn.prod.website-files.com/69d75a4037abb9fda95564c7/69d7c990b63368c8dcf28ca5_254286__jagadamba__mechanical-switch.mp3'); 
-  tickSound.volume = 0.06; // Volumen fijo en el canal principal
+  tickSound.volume = 0.06; 
   let lastBarPlayed = -1;
   let lastTickTime = 0; 
 
@@ -69,10 +69,8 @@ document.addEventListener("DOMContentLoaded", (event) => {
         else if (diff === 2) bar.classList.add('is-active-2');
       });
 
-      // --- CONTROL DE SONIDO: UN SOLO CANAL ---
       let now = Date.now();
-      if (now - lastTickTime > 50) { // 50ms de respiro
-        // Al poner el tiempo a 0, cortamos en seco cualquier "eco" anterior
+      if (now - lastTickTime > 50) { 
         tickSound.currentTime = 0; 
         tickSound.play().catch(() => {});
         lastTickTime = now;
@@ -164,7 +162,9 @@ document.addEventListener("DOMContentLoaded", (event) => {
         let safeStep = stepWidth || 1; 
         let currentRot = gsap.getProperty(radioTop, "rotation");
         let interval = 360 / (totalSlides - 1); 
-        let sensibilidadSlider = 2.5; 
+        
+        // 🔥 AUMENTADO: Mucha más sensibilidad al arrastre
+        let sensibilidadSlider = 5; 
         
         let rotationChange = -(this.deltaX * sensibilidadSlider / safeStep) * interval;
         let newRotation = currentRot + rotationChange;
@@ -177,8 +177,9 @@ document.addEventListener("DOMContentLoaded", (event) => {
         let diff = currentRot - startSliderRot;
         let targetRot;
 
-        if (diff > 5) targetRot = Math.ceil(currentRot / interval) * interval;
-        else if (diff < -5) targetRot = Math.floor(currentRot / interval) * interval;
+        // 🔥 AUMENTADO: Umbral bajado a 3 grados para que salte con casi rozarlo
+        if (diff > 3) targetRot = Math.ceil(currentRot / interval) * interval;
+        else if (diff < -3) targetRot = Math.floor(currentRot / interval) * interval;
         else targetRot = Math.round(currentRot / interval) * interval;
 
         targetRot = Math.max(0, Math.min(360, targetRot));
