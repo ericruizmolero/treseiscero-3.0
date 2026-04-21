@@ -123,6 +123,7 @@ document.addEventListener("DOMContentLoaded", (event) => {
 
   // --- 6. CONTROLES DRAGGABLE Y CLICKS ---
   
+  // A. Control del dial físico (Mantiene el arrastre)
   if (radioTop) {
     Draggable.create(radioTop, {
       type: "rotation",
@@ -134,21 +135,7 @@ document.addEventListener("DOMContentLoaded", (event) => {
     });
   }
 
-  if (freqLayout) {
-    Draggable.create(document.createElement("div"), {
-      trigger: freqLayout,
-      type: "x",
-      onDrag: function() {
-        let sensibilidad = 2; 
-        let currentRot = gsap.getProperty(radioTop, "rotation");
-        let newRotation = currentRot + (this.deltaX / sensibilidad);
-        syncSystem(newRotation, 0.4);
-      },
-      onDragEnd: snapToNearestSlide
-    });
-    freqLayout.style.cursor = "grab";
-  }
-
+  // B. Control del Slider de tarjetas (Mantiene el arrastre ultra-sensible)
   if (homeMiddle) {
     let startSliderRot = 0; 
 
@@ -162,8 +149,6 @@ document.addEventListener("DOMContentLoaded", (event) => {
         let safeStep = stepWidth || 1; 
         let currentRot = gsap.getProperty(radioTop, "rotation");
         let interval = 360 / (totalSlides - 1); 
-        
-        // 🔥 AUMENTADO: Mucha más sensibilidad al arrastre
         let sensibilidadSlider = 5; 
         
         let rotationChange = -(this.deltaX * sensibilidadSlider / safeStep) * interval;
@@ -177,7 +162,6 @@ document.addEventListener("DOMContentLoaded", (event) => {
         let diff = currentRot - startSliderRot;
         let targetRot;
 
-        // 🔥 AUMENTADO: Umbral bajado a 3 grados para que salte con casi rozarlo
         if (diff > 3) targetRot = Math.ceil(currentRot / interval) * interval;
         else if (diff < -3) targetRot = Math.floor(currentRot / interval) * interval;
         else targetRot = Math.round(currentRot / interval) * interval;
@@ -191,7 +175,31 @@ document.addEventListener("DOMContentLoaded", (event) => {
     homeMiddle.style.cursor = "grab";
   }
 
-  // EVENTOS DE CLICK EN LOS TABS
+  // --- NUEVO C. CLICKS EN LAS BARRAS DE FRECUENCIA ---
+  if (freqBars.length > 0) {
+    freqBars.forEach((bar, index) => {
+      // Le ponemos el cursor de "pointer" para que parezca clicable
+      bar.style.cursor = "pointer";
+      
+      bar.addEventListener('click', (e) => {
+        // Evitamos conflictos si se hace clic justo en el texto que está dentro
+        e.stopPropagation();
+        
+        // 1. Calculamos a cuántos grados equivale esta barra en concreto
+        let exactTargetRot = (index / (totalBars - 1)) * 360;
+        
+        // 2. Buscamos el "magnetismo": el slide más cercano a esos grados
+        let interval = 360 / (totalSlides - 1); 
+        let snappedRot = Math.round(exactTargetRot / interval) * interval;
+        snappedRot = Math.max(0, Math.min(360, snappedRot));
+
+        // 3. Volamos suavemente hacia allí
+        syncSystem(snappedRot, 0.8);
+      });
+    });
+  }
+
+  // D. EVENTOS DE CLICK EN LOS TABS (Mantenido intacto)
   if (tabWrappers.length > 0) {
     tabWrappers.forEach((wrapper, index) => {
       wrapper.style.cursor = "pointer";
