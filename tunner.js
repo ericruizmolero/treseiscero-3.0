@@ -133,7 +133,12 @@ document.addEventListener("DOMContentLoaded", (event) => {
         let currentRot = gsap.getProperty(radioTop, "rotation");
         let interval = 360 / (totalSlides - 1); 
         
-        let rotationChange = -(this.deltaX / safeWidth) * interval;
+        // --- NUEVO: Sensibilidad del slider ---
+        // Aumenta este número para que sea más fácil deslizar (ej: 3)
+        // Disminúyelo si quieres que cueste más (ej: 1)
+        let sensibilidadSlider = 2.5; 
+        
+        let rotationChange = -(this.deltaX * sensibilidadSlider / safeWidth) * interval;
         let newRotation = currentRot + rotationChange;
         
         syncSystem(newRotation);
