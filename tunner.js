@@ -40,8 +40,8 @@ document.addEventListener("DOMContentLoaded", (event) => {
   let lastBarPlayed = -1;
 
   // --- 3. LÓGICA DE UI (FRECUENCIAS) ---
-  function renderUI(logicalRot) {
-    let progress = (logicalRot / 360) * 100;
+  function renderUI(rotation) {
+    let progress = (rotation / 360) * 100;
     
     if (progressiveWrapper) {
       progressiveWrapper.style.setProperty('--progress', progress.toFixed(2));
@@ -66,9 +66,9 @@ document.addEventListener("DOMContentLoaded", (event) => {
   }
 
   // --- 4. LÓGICA DEL SLIDER ---
-  function updateSlider(logicalRot, duration) {
+  function updateSlider(rotation, duration) {
     if (!homeMiddle || totalSlides === 0) return;
-    let progress = logicalRot / 360;
+    let progress = rotation / 360;
     let slideIndexFloat = progress * (totalSlides - 1);
     let centerIndex = (totalSlides - 1) / 2;
     let offsetSlides = centerIndex - slideIndexFloat;
@@ -82,30 +82,30 @@ document.addEventListener("DOMContentLoaded", (event) => {
     });
   }
 
-  // --- 5. SISTEMA CENTRAL DE SINCRONIZACIÓN (INFINITO) ---
+  // --- 5. SISTEMA CENTRAL DE SINCRONIZACIÓN (CON LÍMITES) ---
   function syncSystem(newRotation, duration = 0.15) {
-    // 1. El dial físico puede girar infinitamente sin límites
+    // Volvemos a limitar la rotación entre 0 y 360
+    let clamped = Math.max(0, Math.min(360, newRotation));
+    
     gsap.to(radioTop, { 
-      rotation: newRotation, 
+      rotation: clamped, 
       duration: duration, 
       ease: "power2.out", 
       overwrite: "auto" 
     });
     
-    // 2. Para la UI y el Slider, usamos "wrap" para mantener el cálculo entre 0 y 360
-    // Esto hace que un giro de 370º se traduzca como 10º para la lógica interna.
-    let logicalRot = gsap.utils.wrap(0, 360, newRotation);
-    
-    renderUI(logicalRot);
-    updateSlider(logicalRot, duration);
+    renderUI(clamped);
+    updateSlider(clamped, duration);
   }
 
-  // --- 6. FUNCIONES DE AUTO-ENCAJE (SNAP INFINITO) ---
+  // --- 6. FUNCIONES DE AUTO-ENCAJE (SNAP) ---
   function snapToNearestSlide() {
     let currentRot = gsap.getProperty(radioTop, "rotation");
     let interval = 360 / (totalSlides - 1); 
     let targetRot = Math.round(currentRot / interval) * interval;
-    // Eliminado: targetRot = Math.max(0, Math.min(360, targetRot)); -> Ahora es infinito
+    
+    // Restauramos el límite para que no intente encajar más allá de las esquinas
+    targetRot = Math.max(0, Math.min(360, targetRot));
 
     gsap.to({ rot: currentRot }, {
       rot: targetRot,
@@ -119,11 +119,11 @@ document.addEventListener("DOMContentLoaded", (event) => {
 
   // --- 7. CONTROLES DRAGGABLE ---
   
-  // A. Control del dial (Rueda) - Bounds eliminados
+  // A. Control del dial (Rueda)
   if (radioTop) {
     Draggable.create(radioTop, {
       type: "rotation",
-      // bounds: { minRotation: 0, maxRotation: 360 }, // <-- Comentado para permitir loop
+      bounds: { minRotation: 0, maxRotation: 360 }, // Restauramos el tope físico
       onDrag: function() {
         syncSystem(this.rotation); 
       },
@@ -182,7 +182,8 @@ document.addEventListener("DOMContentLoaded", (event) => {
           targetRot = Math.round(currentRot / interval) * interval;
         }
 
-        // Eliminado el Math.max/min para permitir arrastre infinito
+        // Restauramos el límite aquí también
+        targetRot = Math.max(0, Math.min(360, targetRot));
 
         gsap.to({ rot: currentRot }, {
           rot: targetRot,
