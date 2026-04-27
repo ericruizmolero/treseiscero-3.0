@@ -331,10 +331,10 @@ window.startLogoAnimation = async function() {
 
   if (headingEl) {
     const csBig  = getComputedStyle(headingEl)
-    const csTiny = getComputedStyle(tinyEl || headingEl)
-    cfg.fontSize      = parseFloat(csTiny.fontSize)
-    cfg.fontWeight    = parseFloat(csTiny.fontWeight)
-    cfg.letterSpacing = parseFloat(csTiny.letterSpacing) || 0
+  
+    cfg.fontSize      = 5;
+    cfg.fontWeight    = 500;
+    cfg.letterSpacing = 0;
     cfg.bigFontPx     = parseFloat(csBig.fontSize)
   }
 
