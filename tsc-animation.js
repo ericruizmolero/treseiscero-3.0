@@ -268,7 +268,7 @@ function tick(now) {
     ctx.translate(tx, ty)
     ctx.scale(s, s)
     
-    ctx.letterSpacing = "-0.06rem" 
+    ctx.letterSpacing = "-0.03rem" 
 
     const part1 = "A "
     const part2 = "pixel"
