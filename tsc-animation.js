@@ -5,7 +5,11 @@ import { prepareWithSegments, layoutWithLines } from 'https://esm.sh/@chenglou/p
 // ══════════════════════════════════════════════════════════════════
 const WORD    = 'A pixel boutique '
 const PHRASE  = 'A pixel boutique'
-const COLOR   = { r: 2, g: 45, b: 66 }
+
+// 🎨 Configuración de colores
+const COLOR_MAIN = { r: 2, g: 45, b: 66 }
+// Reemplaza estos valores RGB por tu color "urban-mist" real
+const COLOR_MIST = { r: 153, g: 163, b: 164 } 
 
 const PAUSE_MS   = 500
 const SHRINK_MS  = 1500
@@ -23,6 +27,7 @@ const cfg = {
   cursorRadius:  150,
   cursorForce:   4,
   returnSpeed:   1,
+  yOffsetDOM:    0, // Ajusta este valor si el texto "salta" verticalmente al hacer la transición
 }
 
 let FONT_FAMILY = 'Satoshi, Arial, sans-serif'
@@ -167,10 +172,20 @@ function buildParticles(phraseRect) {
       const alpha = maskAlpha(sx, sy)
       const isCentral = !!(phraseRect && li === phraseRect.rowIdx
         && ci >= phraseRect.charStart && ci < phraseRect.charEnd)
+      
+      // Chequeo de color dinámico para la palabra "pixel"
+      let isMistChar = false
+      for (let s = Math.max(0, ci - 4); s <= ci; s++) {
+        if (text.substring(s, s + 5) === 'pixel') {
+          isMistChar = true; break;
+        }
+      }
+      const particleColor = isMistChar ? COLOR_MIST : COLOR_MAIN;
+
       if (alpha >= cfg.alphaThresh) {
         raw.push({
           ox: x, oy, x, y: oy, vx: 0, vy: 0,
-          ch: text[ci], cw, lineH,
+          ch: text[ci], cw, lineH, color: particleColor,
           cx: sx, rawA: alpha/255, isCentral
         })
       }
@@ -189,14 +204,14 @@ function buildParticles(phraseRect) {
 }
 
 let bigPhrase = null
-function setupBigPhrase(phraseRect, bigFontPx) {
+function setupBigPhrase(phraseRect, bigFontPx, startX, startY) {
   const smallFontPx = cfg.fontSize * DPR
   ctx.font = `${cfg.fontWeight} ${smallFontPx}px ${FONT_FAMILY}`
-  const smallW = ctx.measureText(PHRASE).width
   const scale  = (bigFontPx * DPR) / smallFontPx
+  
   bigPhrase = {
-    startTx: (RENDER_W - smallW*scale) / 2,
-    startTy: (RENDER_H - smallFontPx*scale) / 2,
+    startTx: startX,
+    startTy: startY,
     startScale: scale,
     finalTx: phraseRect.x,
     finalTy: phraseRect.y,
@@ -225,7 +240,6 @@ window.addEventListener('mouseleave', () => { mouse.active=false })
 // ══════════════════════════════════════════════════════════════════
 const lerp         = (a, b, t) => a + (b-a)*t
 const easeOutCubic = t => 1 - Math.pow(1-t, 3)
-const fc = COLOR
 let animating=false, startTime=0
 
 function tick(now) {
@@ -238,17 +252,33 @@ function tick(now) {
   ctx.font = `${cfg.fontWeight} ${cfg.fontSize*DPR}px ${FONT_FAMILY}`
   ctx.textBaseline = 'top'
 
-  // ── Fase A: big phrase shrink ──────────────────────────────────
+  // ── Fase A: big phrase shrink (con 2 colores) ──────────────────
   if (shrinkT < 1) {
     const e  = easeOutCubic(shrinkT)
     const tx = lerp(bigPhrase.startTx, bigPhrase.finalTx, e)
     const ty = lerp(bigPhrase.startTy, bigPhrase.finalTy, e)
     const s  = lerp(bigPhrase.startScale, bigPhrase.finalScale, e)
+    
     ctx.save()
     ctx.translate(tx, ty)
     ctx.scale(s, s)
-    ctx.fillStyle = `rgba(${fc.r},${fc.g},${fc.b},1)`
-    ctx.fillText(PHRASE, 0, 0)
+    
+    // Dibujamos por partes para mantener los colores
+    const part1 = "A "
+    const part2 = "pixel"
+    const part3 = " boutique"
+    
+    ctx.fillStyle = `rgba(${COLOR_MAIN.r},${COLOR_MAIN.g},${COLOR_MAIN.b},1)`
+    ctx.fillText(part1, 0, 0)
+    let offset = ctx.measureText(part1).width
+    
+    ctx.fillStyle = `rgba(${COLOR_MIST.r},${COLOR_MIST.g},${COLOR_MIST.b},1)`
+    ctx.fillText(part2, offset, 0)
+    offset += ctx.measureText(part2).width
+    
+    ctx.fillStyle = `rgba(${COLOR_MAIN.r},${COLOR_MAIN.g},${COLOR_MAIN.b},1)`
+    ctx.fillText(part3, offset, 0)
+    
     ctx.restore()
   }
 
@@ -278,7 +308,9 @@ function tick(now) {
       p.vx *= FRICTION;             p.vy *= FRICTION
       p.x  += p.vx;                 p.y  += p.vy
 
-      ctx.fillStyle = `rgba(${fc.r},${fc.g},${fc.b},${alpha})`
+      // Color dinámico almacenado en la partícula
+      ctx.fillStyle = `rgba(${p.color.r},${p.color.g},${p.color.b},${alpha})`
+      
       layoutCache.pixelMode
         ? ctx.fillRect(Math.round(p.x), Math.round(p.y), Math.ceil(p.cw), Math.ceil(p.lineH))
         : ctx.fillText(p.ch, p.x, p.y)
@@ -292,9 +324,8 @@ function tick(now) {
 //  API PÚBLICA
 // ══════════════════════════════════════════════════════════════════
 
-// Llamar desde tu GSAP onComplete (después de ocultar .load_container)
 window.startLogoAnimation = async function() {
-  // Leer medidas reales del DOM
+  const container = document.querySelector('.load_container')
   const headingEl = document.querySelector('.load_container .heading-style-h4')
   const tinyEl    = document.querySelector('.heading-style-h4.is-tiny')
 
@@ -307,29 +338,42 @@ window.startLogoAnimation = async function() {
     cfg.bigFontPx     = parseFloat(csBig.fontSize)
   }
 
-  // Esperar a que Satoshi esté completamente cargada
   await document.fonts.ready
   await Promise.all([
     document.fonts.load(`${cfg.fontWeight} ${cfg.fontSize}px Satoshi`),
     document.fonts.load(`${cfg.fontWeight} ${cfg.bigFontPx}px Satoshi`),
   ])
 
-  // Reset
+  // Capturar coordenadas dinámicamente del HTML
+  let startX = 0
+  let startY = 0
+  
+  if (headingEl) {
+    const headingRect = headingEl.getBoundingClientRect()
+    const canvasRect  = canvas.getBoundingClientRect()
+    
+    startX = (headingRect.left - canvasRect.left) * DPR
+    startY = (headingRect.top - canvasRect.top + cfg.yOffsetDOM) * DPR
+    
+    // Ocultamos el DOM real justo en este milisegundo
+    if (container) container.style.opacity = 0
+  }
+
   animating=false; particles=[]; bigPhrase=null; layoutCache=null
   ctx.clearRect(0, 0, RENDER_W, RENDER_H)
   document.getElementById('tsc-logo-wrap').classList.remove('svg-mode')
 
   computeLayout()
   const phrase = findCenterPhrase()
-  if (!phrase) { console.warn('[tsc] frase no encontrada en la máscara'); return }
+  if (!phrase) { console.warn('[tsc] frase no encontrada'); return }
 
   buildParticles(phrase)
-  setupBigPhrase(phrase, cfg.bigFontPx)
+  setupBigPhrase(phrase, cfg.bigFontPx, startX, startY)
+  
   startTime=performance.now(); animating=true
   requestAnimationFrame(tick)
 }
 
-// Llamar para cross-fade al SVG final
 window.showLogoSVG = function() {
   document.getElementById('tsc-logo-wrap').classList.add('svg-mode')
 }
