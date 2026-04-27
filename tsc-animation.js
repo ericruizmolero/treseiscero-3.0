@@ -27,7 +27,8 @@ const cfg = {
   cursorRadius:  150,
   cursorForce:   4,
   returnSpeed:   1,
-  yOffsetDOM:    0, // Ajusta este valor si el texto "salta" verticalmente al hacer la transición
+  // 🔥 CAMBIA ESTO. Prueba con 4, 5, 6, o 7 hasta que sea perfecto.
+  yOffsetDOM:    5,
 }
 
 let FONT_FAMILY = 'Satoshi, Arial, sans-serif'
