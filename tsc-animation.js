@@ -11,7 +11,7 @@ const cfg = {
   fontSize:      8,     // Tamaño de las mini letras
   fontWeight:    500,   // Grosor (100, 400, 500, etc.)
   lineHeight:    1.25,  // Interlineado (1.25 = 125%)
-  letterSpacing: 0,     // Espaciado entre letras en las partículas
+  letterSpacing: -0.05,     // Espaciado entre letras en las partículas
   wordSpacing:   0,     // Espacio extra entre palabras <-- ¡NUEVO!
   
   // ── 2. Ajuste de la Transición ──
