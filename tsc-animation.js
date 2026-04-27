@@ -228,15 +228,28 @@ function tick(now) {
 
 window.startLogoAnimation = async function() {
   const headingEl = document.querySelector('.load_container .heading-style-h4')
+  const tinyEl    = document.querySelector('.heading-style-h4.is-tiny')
+
   if (headingEl) {
-    const cs = getComputedStyle(headingEl)
-    FONT_FAMILY   = cs.fontFamily
-    cfg.bigFontPx = parseFloat(cs.fontSize)
+    const csBig  = getComputedStyle(headingEl)
+    const csTiny = getComputedStyle(tinyEl || headingEl)
+
+    // Fuente del mosaico → leída del heading .is-tiny
+    FONT_FAMILY           = csBig.fontFamily
+    cfg.fontSize          = parseFloat(csTiny.fontSize)        // 8px
+    cfg.fontWeight        = parseFloat(csTiny.fontWeight)      // 500 (heredado)
+    cfg.letterSpacing     = parseFloat(csTiny.letterSpacing) || 0  // -0.02px ≈ 0
+
+    // Tamaño inicial de la frase grande → leído del heading normal
+    cfg.bigFontPx         = parseFloat(csBig.fontSize)
   }
+
   await document.fonts.ready
+
   animating=false; particles=[]; bigPhrase=null; layoutCache=null
   ctx.clearRect(0,0,RENDER_W,RENDER_H)
   document.getElementById('tsc-logo-wrap').classList.remove('svg-mode')
+
   computeLayout()
   const phrase = findCenterPhrase()
   if (!phrase) { console.warn('[tsc] frase no encontrada'); return }
