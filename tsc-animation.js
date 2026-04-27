@@ -1,44 +1,54 @@
+/**
+ * tsc-animation.js
+ * "A pixel boutique" → mosaico de texto → logo treseiscero SVG
+ *
+ * API pública:
+ *   window.startLogoAnimation()   — arranca la animación (GSAP la llama)
+ *   window.showLogoSVG()          — crossfade canvas → SVG limpio
+ *
+ * Estructura HTML esperada en Webflow:
+ *   #tsc-logo-wrap
+ *     #tsc-canvas
+ *     #tsc-svg   (SVG inline o <img>)
+ */
 
-import { prepareWithSegments, layoutWithLines } from 'https://esm.sh/@chenglou/pretext'
+import { prepareWithSegments, layoutWithLines }
+  from 'https://esm.sh/@chenglou/pretext'
 
 // ══════════════════════════════════════════════════════════════════
-//  CONFIGURACIÓN FINAL
+//  CONFIG
 // ══════════════════════════════════════════════════════════════════
-const WORD    = 'A pixel boutique '
-const PHRASE  = 'A pixel boutique'
+const WORD        = 'A pixel boutique '       // texto que llena el mosaico
+const FONT_FAMILY = 'Satoshi, Arial, sans-serif'
+const COLOR       = { r: 2, g: 45, b: 66 }   // #022D42
+const PHRASE      = 'A pixel boutique'
 
-const cfg = {
-  // ── Layout ──
-  fontSize:      6, 
-  fontWeight:    500, 
-  lineHeight:    0.9, 
-  letterSpacing: 0.4, 
-  wordSpacing:   -0.5,
-  yOffsetDOM:    5,     
-  
-  // ── Físicas e Interacción ──
-  alphaThresh:   8,     
-  cursorRadius:  150,   
-  cursorForce:   4,     
-  returnSpeed:   9.8,   
-  friction:      0.79,   
-  
-  // ── Auto-calculado ──
-  bigFontPx:     60,    
+// Timing (ms)
+const PAUSE_MS   = 500    // pausa inicial antes de animar
+const SHRINK_MS  = 1500   // Fase A: la frase grande se encoge
+const WAVE_MS    = 900    // Fase B: ola horizontal que revela el mosaico
+const FADE_IN_MS = 250    // duración fade-in de cada partícula
+const FRICTION   = 0.75   // amortiguación de la física
+
+// Partículas: valores visuales por defecto
+const CFG = {
+  fontSize:      5,     // px lógicos de cada "letra-píxel"
+  fontWeight:    400,
+  lineHeight:    1.45,
+  letterSpacing: 1.25,
+  alphaThresh:   8,     // umbral mínimo de alpha en la máscara SVG
+  bigFontPx:     60,    // tamaño CSS (px) de la frase grande inicial
+  cursorRadius:  150,   // radio de repulsión del cursor (render-px)
+  cursorForce:   4,     // intensidad de la repulsión
+  returnSpeed:   1,     // velocidad de retorno al origen (÷100 en uso)
 }
 
-const COLOR_MAIN = { r: 2, g: 45, b: 66 }     
-const COLOR_MIST = { r: 170, g: 182, b: 182 } 
-
-const PAUSE_MS   = 30  
-const SHRINK_MS  = 600 
-const WAVE_MS    = 700  
-const FADE_IN_MS = 400  
-
-let FONT_FAMILY = 'Satoshi, Arial, sans-serif'
+// Cross-fade final
+const SVG_FADE_DELAY_MS = 1500  // pausa tras completar el mosaico
+const SVG_FADE_DUR_MS   = 700   // duración del cross-fade (coincide con CSS)
 
 // ══════════════════════════════════════════════════════════════════
-//  SVG MASK
+//  SVG como máscara (inline para no depender de URLs externas)
 // ══════════════════════════════════════════════════════════════════
 const SVG_SRC = `<svg width="123" height="18" viewBox="0 0 123 18" fill="none" xmlns="http://www.w3.org/2000/svg">
 <path d="M109.082 11.0681C109.082 6.89596 111.757 4.14233 115.682 4.14233C119.607 4.14233 122.281 6.89596 122.281 11.0681C122.281 15.2403 119.601 17.9999 115.682 17.9999C111.757 17.9999 109.082 15.2403 109.082 11.0681ZM112.111 11.0681C112.111 13.7502 113.458 15.3535 115.688 15.3535C117.912 15.3535 119.252 13.7562 119.252 11.0681C119.252 8.38006 117.912 6.78868 115.688 6.78868C113.458 6.78868 112.111 8.38602 112.111 11.0681Z" fill="#022D42"/>
@@ -55,19 +65,21 @@ const SVG_SRC = `<svg width="123" height="18" viewBox="0 0 123 18" fill="none" x
 </svg>`
 
 // ══════════════════════════════════════════════════════════════════
-//  CANVAS SETUP
+//  CANVAS — dimensiones desde el wrapper (#tsc-logo-wrap)
 // ══════════════════════════════════════════════════════════════════
 const wrap   = document.getElementById('tsc-logo-wrap')
 const canvas = document.getElementById('tsc-canvas')
 const ctx    = canvas.getContext('2d')
 const DPR    = Math.min(window.devicePixelRatio || 1, 3)
 
+// Responsivo: el ancho se lee del DOM en el momento de inicializar
 const DISPLAY_W = wrap.offsetWidth || Math.min(window.innerWidth * 0.9, 1000)
 const RENDER_W  = Math.round(DISPLAY_W * DPR)
-const RENDER_H  = Math.round(RENDER_W * (18 / 123))
+const RENDER_H  = Math.round(RENDER_W * (18 / 123))   // ratio SVG 123:18
 canvas.width  = RENDER_W
 canvas.height = RENDER_H
 
+// ── SVG → máscara de alpha ────────────────────────────────────────
 const mask = await new Promise((resolve, reject) => {
   const blob = new Blob([SVG_SRC], { type: 'image/svg+xml' })
   const url  = URL.createObjectURL(blob)
@@ -90,79 +102,101 @@ function maskAlpha(x, y) {
   return mask.data[(py * RENDER_W + px) * 4 + 3]
 }
 
+// ══════════════════════════════════════════════════════════════════
+//  LAYOUT — `prepareWithSegments` + `layoutWithLines`
+// ══════════════════════════════════════════════════════════════════
 let particles   = []
 let layoutCache = null
 
 function computeLayout() {
-  const fontSizePx = cfg.fontSize * DPR
-  const font       = `${cfg.fontWeight} ${fontSizePx}px ${FONT_FAMILY}`
-  const lineH      = Math.round(cfg.fontSize * cfg.lineHeight * DPR)
-  const pixelMode  = cfg.fontSize <= 4
-  const fixedCellW = cfg.fontSize * 0.62 * DPR
+  const fontSizePx = CFG.fontSize * DPR
+  const font       = `${CFG.fontWeight} ${fontSizePx}px ${FONT_FAMILY}`
+  const lineH      = Math.round(CFG.fontSize * CFG.lineHeight * DPR)
+  const pixelMode  = CFG.fontSize <= 4
+  const fixedCellW = CFG.fontSize * 0.62 * DPR
 
   ctx.font = font
 
   const rows     = Math.ceil(RENDER_H / lineH) + 2
-  const estCols  = Math.ceil(RENDER_W / (cfg.fontSize * DPR * 0.55))
+  const estCols  = Math.ceil(RENDER_W / (CFG.fontSize * DPR * 0.55))
   const longText = WORD.repeat(Math.ceil((rows * estCols * 2) / WORD.length) + 4)
 
   const prepared  = prepareWithSegments(longText, font)
   const { lines } = layoutWithLines(prepared, RENDER_W, lineH)
 
+  // X acumulada por char en cada fila (pixelMode = ancho uniforme)
   const lineCharX = lines.map(line => {
-    const xs = [0]; let cum = 0
+    const xs = [0]
+    let cum = 0
     for (let i = 0; i < line.text.length; i++) {
-      let charW = 0;
-      if (pixelMode) {
-        charW = fixedCellW;
-      } else {
-        charW = ctx.measureText(line.text[i]).width + cfg.letterSpacing * DPR;
-        if (line.text[i] === ' ') {
-          charW += cfg.wordSpacing * DPR; 
-        }
-      }
-      cum += charW;
+      const w = pixelMode
+        ? fixedCellW
+        : ctx.measureText(line.text[i]).width + CFG.letterSpacing * DPR
+      cum += w
       xs.push(cum)
     }
     return xs
   })
 
   layoutCache = { lines, lineCharX, lineH, fontSizePx, font, pixelMode }
+  return layoutCache
 }
 
+// ══════════════════════════════════════════════════════════════════
+//  Encontrar la ocurrencia de PHRASE más centrada que esté
+//  completamente dentro de la silueta SVG (alpha ≥ alphaThresh)
+// ══════════════════════════════════════════════════════════════════
 function findCenterPhrase() {
   const { lines, lineCharX, lineH, fontSizePx } = layoutCache
-  let best = null, bestDist = Infinity
+
+  let best     = null
+  let bestDist = Infinity
 
   for (let li = 0; li < lines.length; li++) {
     const text = lines[li].text
     const xs   = lineCharX[li]
-    let from = 0
-    
+    let from   = 0
+
     while (true) {
       const idx = text.indexOf(PHRASE, from)
       if (idx === -1) break
-      const oy = li * lineH
-      
-      const cx = (xs[idx] + xs[idx+PHRASE.length]) / 2
-      const cy = oy + fontSizePx / 2
-      const d  = Math.hypot(cx - RENDER_W/2, cy - RENDER_H/2)
-      
-      if (d < bestDist) {
-        bestDist = d
+
+      const startX = xs[idx]
+      const endX   = xs[idx + PHRASE.length]
+      const oy     = li * lineH
+
+      // Todos los chars no-espacio deben estar dentro de la máscara
+      let allInside = true
+      for (let ci = idx; ci < idx + PHRASE.length; ci++) {
+        if (text[ci] === ' ') continue
+        const sx = (xs[ci] + xs[ci + 1]) / 2
+        const sy = oy + fontSizePx * 0.5
+        if (maskAlpha(sx, sy) < CFG.alphaThresh) { allInside = false; break }
+      }
+      if (!allInside) { from = idx + 1; continue }
+
+      const centerX = (startX + endX) / 2
+      const centerY = oy + fontSizePx / 2
+      const dist    = Math.hypot(centerX - RENDER_W / 2, centerY - RENDER_H / 2)
+
+      if (dist < bestDist) {
+        bestDist = dist
         best = {
-          x: xs[idx], y: oy,
-          w: xs[idx+PHRASE.length] - xs[idx],
-          h: lineH, rowIdx: li,
-          charStart: idx, charEnd: idx+PHRASE.length
+          x: startX, y: oy,
+          w: endX - startX, h: lineH,
+          rowIdx: li, charStart: idx, charEnd: idx + PHRASE.length,
         }
       }
       from = idx + 1
     }
   }
+
   return best
 }
 
+// ══════════════════════════════════════════════════════════════════
+//  Construir partículas (excluye los chars de la frase central)
+// ══════════════════════════════════════════════════════════════════
 function buildParticles(phraseRect) {
   const { lines, lineCharX, lineH, fontSizePx } = layoutCache
   const raw = []
@@ -171,187 +205,255 @@ function buildParticles(phraseRect) {
     const text = lines[li].text
     const xs   = lineCharX[li]
     const oy   = li * lineH
+
     for (let ci = 0; ci < text.length; ci++) {
-      const x  = xs[ci], cw = xs[ci+1] - xs[ci]
-      const sx = x + cw*0.5, sy = oy + fontSizePx*0.5
-      const alpha = maskAlpha(sx, sy)
-      const isCentral = !!(phraseRect && li === phraseRect.rowIdx
-        && ci >= phraseRect.charStart && ci < phraseRect.charEnd)
-      
-      if (alpha >= cfg.alphaThresh) {
+      const ch = text[ci]
+      const x  = xs[ci]
+      const cw = xs[ci + 1] - xs[ci]
+
+      // Muestreo central único (match con pretext-logo Vercel)
+      const sampleX = x + cw * 0.5
+      const sampleY = oy + fontSizePx * 0.5
+      const alpha   = maskAlpha(sampleX, sampleY)
+
+      const isCentral = !!(
+        phraseRect
+        && li === phraseRect.rowIdx
+        && ci >= phraseRect.charStart
+        && ci < phraseRect.charEnd
+      )
+
+      if (alpha >= CFG.alphaThresh) {
         raw.push({
-          ox: x, oy, x, y: oy, vx: 0, vy: 0,
-          ch: text[ci], cw, lineH, 
-          color: COLOR_MAIN, 
-          cx: sx, rawA: alpha/255, isCentral
+          ox: x, oy,
+          x,      y: oy,
+          vx: 0,  vy: 0,
+          ch, cw, lineH: layoutCache.lineH,
+          cx: sampleX,
+          rawA: alpha / 255,
+          isCentral,
         })
       }
-      if (x > RENDER_W + cfg.fontSize*2) break
+
+      if (x > RENDER_W + CFG.fontSize * 2) break
     }
   }
 
-  const phraseCx = phraseRect.x + phraseRect.w/2
+  // Delay de ola horizontal (desde el centro de la frase hacia afuera)
+  const phraseCx = phraseRect.x + phraseRect.w / 2
   let maxDx = 0
-  for (const p of raw) { const d=Math.abs(p.cx-phraseCx); if(d>maxDx) maxDx=d }
   for (const p of raw) {
     const dx = Math.abs(p.cx - phraseCx)
-    p.revealDelay = p.isCentral ? -FADE_IN_MS : (maxDx>0 ? dx/maxDx : 0) * WAVE_MS
+    if (dx > maxDx) maxDx = dx
   }
+  for (const p of raw) {
+    const dx = Math.abs(p.cx - phraseCx)
+    // Las partículas centrales tienen delay negativo → aparecen al instante
+    p.revealDelay = p.isCentral
+      ? -FADE_IN_MS
+      : (maxDx > 0 ? dx / maxDx : 0) * WAVE_MS
+  }
+
   particles = raw
 }
 
+// ══════════════════════════════════════════════════════════════════
+//  Calcular posición/escala inicial y final de la frase grande
+// ══════════════════════════════════════════════════════════════════
 let bigPhrase = null
-function setupBigPhrase(phraseRect, bigFontPx, startX, startY) {
-  const smallFontPx = cfg.fontSize * DPR
-  ctx.font = `${cfg.fontWeight} ${smallFontPx}px ${FONT_FAMILY}`
-  const scale  = (bigFontPx * DPR) / smallFontPx
-  
-  bigPhrase = {
-    startTx: startX,
-    startTy: startY,
-    startScale: scale,
-    finalTx: phraseRect.x,
-    finalTy: phraseRect.y,
-    finalScale: 1,
-  }
+function setupBigPhrase(phraseRect) {
+  const smallFontPx = CFG.fontSize * DPR
+  const bigFontPx   = CFG.bigFontPx * DPR
+
+  ctx.font = `${CFG.fontWeight} ${smallFontPx}px ${FONT_FAMILY}`
+  const smallW = ctx.measureText(PHRASE).width
+
+  // Final: posición exacta en el mosaico
+  const finalScale = 1
+  const finalTx    = phraseRect.x
+  const finalTy    = phraseRect.y
+
+  // Inicial: misma fuente pero escalada × (big/small), centrada en canvas
+  const startScale = bigFontPx / smallFontPx
+  const startW     = smallW * startScale
+  const startH     = smallFontPx * startScale
+  const startTx    = (RENDER_W - startW) / 2
+  const startTy    = (RENDER_H - startH) / 2
+
+  bigPhrase = { smallFontPx, startTx, startTy, startScale, finalTx, finalTy, finalScale }
 }
 
+// ══════════════════════════════════════════════════════════════════
+//  Helpers
+// ══════════════════════════════════════════════════════════════════
+const lerp         = (a, b, t) => a + (b - a) * t
+const easeOutCubic = t => 1 - Math.pow(1 - t, 3)
+
+// ══════════════════════════════════════════════════════════════════
+//  Mouse — repulsión con margen fuera del canvas (overflow: visible)
+// ══════════════════════════════════════════════════════════════════
 const mouse = { x: -9999, y: -9999, active: false }
+
 window.addEventListener('mousemove', e => {
-  const r  = canvas.getBoundingClientRect()
-  const cx = (e.clientX - r.left) * (RENDER_W / r.width)
-  const cy = (e.clientY - r.top)  * (RENDER_H / r.height)
-  if (cx>=0 && cx<=RENDER_W && cy>=0 && cy<=RENDER_H) {
-    mouse.x=cx; mouse.y=cy; mouse.active=true
+  const r      = canvas.getBoundingClientRect()
+  const sx     = RENDER_W / r.width
+  const sy     = RENDER_H / r.height
+  const cx     = (e.clientX - r.left) * sx
+  const cy     = (e.clientY - r.top)  * sy
+  const margin = CFG.cursorRadius * 1.5   // zona activa más allá del borde
+  const inZone = cx >= -margin && cx <= RENDER_W + margin
+              && cy >= -margin && cy <= RENDER_H + margin
+  if (inZone) {
+    mouse.x = cx; mouse.y = cy; mouse.active = true
   } else {
-    mouse.active=false
+    mouse.active = false
   }
 })
-window.addEventListener('mouseleave', () => { mouse.active=false })
+window.addEventListener('mouseleave', () => { mouse.active = false })
 
-const lerp           = (a, b, t) => a + (b-a)*t
-const easeInOutCubic = t => t < 0.5 ? 4 * t * t * t : 1 - Math.pow(-2 * t + 2, 3) / 2;
-const easeOutCubic   = t => 1 - Math.pow(1-t, 3)
-
-let animating=false, startTime=0
+// ══════════════════════════════════════════════════════════════════
+//  Loop principal
+// ══════════════════════════════════════════════════════════════════
+let animating = false
+let startTime = 0
+const fc = COLOR
 
 function tick(now) {
   if (!animating) return
-  const elapsed   = now - startTime
-  const shrinkEnd = PAUSE_MS + SHRINK_MS
-  const shrinkT   = Math.max(0, Math.min(1, (elapsed - PAUSE_MS) / SHRINK_MS))
+
+  const elapsed    = now - startTime
+  const shrinkStart = PAUSE_MS
+  const shrinkEnd   = PAUSE_MS + SHRINK_MS
 
   ctx.clearRect(0, 0, RENDER_W, RENDER_H)
-  ctx.font = `${cfg.fontWeight} ${cfg.fontSize*DPR}px ${FONT_FAMILY}`
+  ctx.font        = `${CFG.fontWeight} ${CFG.fontSize * DPR}px ${FONT_FAMILY}`
   ctx.textBaseline = 'top'
 
+  // ── Fase A: la frase grande se encoge hacia la posición del mosaico ──
+  let shrinkT = 0
+  if (elapsed <= shrinkStart)    shrinkT = 0
+  else if (elapsed >= shrinkEnd) shrinkT = 1
+  else shrinkT = (elapsed - shrinkStart) / SHRINK_MS
+
   if (shrinkT < 1) {
-    const e  = easeInOutCubic(shrinkT)
-    const tx = lerp(bigPhrase.startTx, bigPhrase.finalTx, e)
-    const ty = lerp(bigPhrase.startTy, bigPhrase.finalTy, e)
-    const s  = lerp(bigPhrase.startScale, bigPhrase.finalScale, e)
-    
+    const tEase = easeOutCubic(shrinkT)
+    const tx = lerp(bigPhrase.startTx,    bigPhrase.finalTx,    tEase)
+    const ty = lerp(bigPhrase.startTy,    bigPhrase.finalTy,    tEase)
+    const s  = lerp(bigPhrase.startScale, bigPhrase.finalScale, tEase)
+
     ctx.save()
     ctx.translate(tx, ty)
     ctx.scale(s, s)
-    ctx.letterSpacing = "-0.028rem" 
-
-    const part1 = "A "
-    const part2 = "pixel"
-    const part3 = " boutique"
-    
-    ctx.fillStyle = `rgba(${COLOR_MAIN.r},${COLOR_MAIN.g},${COLOR_MAIN.b},1)`
-    ctx.fillText(part1, 0, 0)
-    let offset = ctx.measureText(part1).width
-    
-    const curR = Math.round(lerp(COLOR_MIST.r, COLOR_MAIN.r, e))
-    const curG = Math.round(lerp(COLOR_MIST.g, COLOR_MAIN.g, e))
-    const curB = Math.round(lerp(COLOR_MIST.b, COLOR_MAIN.b, e))
-    
-    ctx.fillStyle = `rgba(${curR},${curG},${curB},1)`
-    ctx.fillText(part2, offset, 0)
-    offset += ctx.measureText(part2).width
-    
-    ctx.fillStyle = `rgba(${COLOR_MAIN.r},${COLOR_MAIN.g},${COLOR_MAIN.b},1)`
-    ctx.fillText(part3, offset, 0)
-    
+    ctx.fillStyle = `rgb(${fc.r},${fc.g},${fc.b})`
+    ctx.fillText(PHRASE, 0, 0)
     ctx.restore()
   }
 
+  // ── Fase B: partículas con física + ola de fade ───────────────────
   if (elapsed >= shrinkEnd) {
-    ctx.letterSpacing = "0px" 
-    
     const waveElapsed = elapsed - shrinkEnd
-    const cursorR  = cfg.cursorRadius * DPR
-    const cursorR2 = cursorR * cursorR
-    const retSpeed = cfg.returnSpeed / 100
+    const cursorR     = CFG.cursorRadius * DPR
+    const cursorR2    = cursorR * cursorR
+    const retSpeed    = CFG.returnSpeed / 100
 
     for (const p of particles) {
       const localT = waveElapsed - p.revealDelay
       if (localT <= 0) continue
-      const alpha = p.rawA * easeOutCubic(Math.min(localT/FADE_IN_MS, 1))
 
+      const progress = Math.min(localT / FADE_IN_MS, 1)
+      const alpha    = p.rawA * easeOutCubic(progress)
+
+      // Física: repulsión cursor + spring + fricción
       if (mouse.active) {
-        const dx=p.x-mouse.x, dy=p.y-mouse.y, d2=dx*dx+dy*dy
+        const dx = p.x - mouse.x
+        const dy = p.y - mouse.y
+        const d2 = dx * dx + dy * dy
         if (d2 < cursorR2 && d2 > 0) {
-          const d = Math.sqrt(d2)
-          const f = ((cursorR-d)/cursorR)**2 * cfg.cursorForce * 0.5
-          const a = Math.atan2(dy, dx)
-          p.vx += Math.cos(a)*f
-          p.vy += Math.sin(a)*f
+          const d   = Math.sqrt(d2)
+          const f   = ((cursorR - d) / cursorR) ** 2 * CFG.cursorForce * 0.5
+          const ang = Math.atan2(dy, dx)
+          p.vx += Math.cos(ang) * f
+          p.vy += Math.sin(ang) * f
         }
       }
-      p.vx += (p.ox-p.x)*retSpeed; p.vy += (p.oy-p.y)*retSpeed
-      p.vx *= cfg.friction;             p.vy *= cfg.friction
-      p.x  += p.vx;                 p.y  += p.vy
+      p.vx += (p.ox - p.x) * retSpeed
+      p.vy += (p.oy - p.y) * retSpeed
+      p.vx *= FRICTION
+      p.vy *= FRICTION
+      p.x  += p.vx
+      p.y  += p.vy
 
-      ctx.fillStyle = `rgba(${p.color.r},${p.color.g},${p.color.b},${alpha})`
-      
-      layoutCache.pixelMode
-        ? ctx.fillRect(Math.round(p.x), Math.round(p.y), Math.ceil(p.cw), Math.ceil(p.lineH))
-        : ctx.fillText(p.ch, p.x, p.y)
+      ctx.fillStyle = `rgba(${fc.r},${fc.g},${fc.b},${alpha})`
+      if (layoutCache.pixelMode) {
+        ctx.fillRect(Math.round(p.x), Math.round(p.y),
+                     Math.ceil(p.cw), Math.ceil(p.lineH))
+      } else {
+        ctx.fillText(p.ch, p.x, p.y)
+      }
     }
   }
+
   requestAnimationFrame(tick)
 }
 
-window.startLogoAnimation = async function() {
-  const container = document.querySelector('.load_container')
-  const headingEl = document.querySelector('.load_container .heading-style-h4')
+// ══════════════════════════════════════════════════════════════════
+//  API pública
+// ══════════════════════════════════════════════════════════════════
+let svgFadeTimer = null
 
-  if (headingEl) {
-    const csBig  = getComputedStyle(headingEl)
-    cfg.bigFontPx = parseFloat(csBig.fontSize); 
-  }
+async function startLogoAnimation({ skipIntro = false } = {}) {
+  // Garantizar que Satoshi esté cargada antes de medir
+  try {
+    await Promise.all([
+      document.fonts.load(`${CFG.fontWeight} ${CFG.fontSize * DPR}px ${FONT_FAMILY}`),
+      document.fonts.load(`${CFG.fontWeight} ${CFG.bigFontPx * DPR}px ${FONT_FAMILY}`),
+    ])
+  } catch (_) { /* fallback a Arial/sans-serif */ }
 
-  await document.fonts.ready
-  await Promise.all([
-    document.fonts.load(`${cfg.fontWeight} ${cfg.fontSize}px Satoshi`),
-    document.fonts.load(`${cfg.fontWeight} ${cfg.bigFontPx}px Satoshi`),
-  ])
-
-  let startX = 0
-  let startY = 0
-  
-  if (headingEl) {
-    const headingRect = headingEl.getBoundingClientRect()
-    const canvasRect  = canvas.getBoundingClientRect()
-    startX = (headingRect.left - canvasRect.left) * DPR
-    startY = (headingRect.top - canvasRect.top + cfg.yOffsetDOM) * DPR
-    if (container) container.style.opacity = 0
-  }
-
-  animating=false; particles=[]; bigPhrase=null; layoutCache=null
+  // Reset estado
+  animating   = false
+  particles   = []
+  bigPhrase   = null
+  layoutCache = null
   ctx.clearRect(0, 0, RENDER_W, RENDER_H)
-  document.getElementById('tsc-logo-wrap').classList.remove('svg-mode')
+  clearTimeout(svgFadeTimer)
+  wrap.classList.remove('svg-mode')
 
   computeLayout()
+
   const phrase = findCenterPhrase()
-  if (!phrase) return;
+  if (!phrase) {
+    console.warn('[tsc-animation] No se encontró la frase dentro de la máscara SVG')
+    return
+  }
 
   buildParticles(phrase)
-  setupBigPhrase(phrase, cfg.bigFontPx, startX, startY)
-  
-  startTime=performance.now(); animating=true
+  setupBigPhrase(phrase)
+
+  startTime = performance.now()
+  if (skipIntro) {
+    startTime -= (PAUSE_MS + SHRINK_MS + WAVE_MS + FADE_IN_MS + 50)
+  }
+  animating = true
   requestAnimationFrame(tick)
+
+  // Crossfade automático canvas → SVG al completarse el mosaico
+  if (!skipIntro) {
+    const totalAnim = PAUSE_MS + SHRINK_MS + WAVE_MS + FADE_IN_MS
+    svgFadeTimer = setTimeout(() => {
+      wrap.classList.add('svg-mode')
+    }, totalAnim + SVG_FADE_DELAY_MS)
+  }
 }
+
+function showLogoSVG() {
+  animating = false
+  wrap.classList.add('svg-mode')
+}
+
+// Exponer API global para GSAP / Webflow
+window.startLogoAnimation = startLogoAnimation
+window.showLogoSVG        = showLogoSVG
+
+// Auto-arranque (comentar si GSAP controla el inicio)
+startLogoAnimation()
