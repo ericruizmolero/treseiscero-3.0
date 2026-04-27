@@ -3,31 +3,36 @@ import { prepareWithSegments, layoutWithLines } from 'https://esm.sh/@chenglou/p
 // ══════════════════════════════════════════════════════════════════
 //  CONFIGURACIÓN FINAL
 // ══════════════════════════════════════════════════════════════════
-const WORD    = 'A pixel boutique '
-const PHRASE  = 'A pixel boutique'
+const WORD   = 'A pixel boutique '
+const PHRASE = 'A pixel boutique'
 
 const cfg = {
-  fontSize:      6, 
-  fontWeight:    500, 
-  lineHeight:    0.9, 
-  letterSpacing: 0.4, 
+  // ── Layout ──
+  fontSize:      6,
+  fontWeight:    500,
+  lineHeight:    0.9,
+  letterSpacing: 0.4,
   wordSpacing:   -0.5,
-  yOffsetDOM:    5,     
-  alphaThresh:   8,     
-  cursorRadius:  150,   
-  cursorForce:   4,     
-  returnSpeed:   9.8,   
-  friction:      0.79,   
-  bigFontPx:     60,    
+  yOffsetDOM:    5,
+
+  // ── Físicas e Interacción ──
+  alphaThresh:  8,
+  cursorRadius: 150,
+  cursorForce:  4,
+  returnSpeed:  9.8,
+  friction:     0.79,
+
+  // ── Auto-calculado desde el DOM heading en startLogoAnimation() ──
+  bigFontPx: 60,
 }
 
-const COLOR_MAIN = { r: 2, g: 45, b: 66 }     
-const COLOR_MIST = { r: 170, g: 182, b: 182 } 
+const COLOR_MAIN = { r: 2,   g: 45,  b: 66  }  // #022D42
+const COLOR_MIST = { r: 170, g: 182, b: 182 }  // urban mist
 
-const PAUSE_MS   = 30  
-const SHRINK_MS  = 600 
-const WAVE_MS    = 700  
-const FADE_IN_MS = 400  
+const PAUSE_MS   = 30
+const SHRINK_MS  = 600
+const WAVE_MS    = 700
+const FADE_IN_MS = 400
 
 let FONT_FAMILY = 'Satoshi, Arial, sans-serif'
 
@@ -49,49 +54,39 @@ const SVG_SRC = `<svg width="123" height="18" viewBox="0 0 123 18" fill="none" x
 </svg>`
 
 // ══════════════════════════════════════════════════════════════════
-//  CANVAS SETUP (RESPONSIVE)
+//  CANVAS SETUP
+//  RENDER_W/RENDER_H se fijan una vez al cargar, en el tamaño actual
+//  del wrapper. El canvas CSS puede mostrarse a cualquier escala
+//  después (width:100%); la conversión CSS↔render se hace en runtime
+//  con cssToRender = RENDER_W / canvas.getBoundingClientRect().width
 // ══════════════════════════════════════════════════════════════════
 const wrap   = document.getElementById('tsc-logo-wrap')
 const canvas = document.getElementById('tsc-canvas')
 const ctx    = canvas.getContext('2d')
 const DPR    = Math.min(window.devicePixelRatio || 1, 3)
 
-// Padding para que las letras tengan espacio para rebotar fuera del logo
-const EXTRA = 150 * DPR 
+const DISPLAY_W = wrap.offsetWidth || Math.min(window.innerWidth * 0.9, 1000)
+const RENDER_W  = Math.round(DISPLAY_W * DPR)
+const RENDER_H  = Math.round(RENDER_W * (18 / 123))
+canvas.width  = RENDER_W
+canvas.height = RENDER_H
 
-let RENDER_W, RENDER_H, mask
-
-// Función para inicializar/redimensionar el canvas
-async function initCanvas() {
-  const DISPLAY_W = wrap.offsetWidth || Math.min(window.innerWidth * 0.9, 1000)
-  RENDER_W = Math.round(DISPLAY_W * DPR)
-  RENDER_H = Math.round(RENDER_W * (18 / 123))
-  
-  canvas.width  = RENDER_W + (EXTRA * 2)
-  canvas.height = RENDER_H + (EXTRA * 2)
-  
-  // Estilo CSS para que el canvas se adapte al contenedor
-  canvas.style.width = `calc(100% + ${(EXTRA * 2) / DPR}px)`
-  canvas.style.height = "auto"
-  canvas.style.marginLeft = `-${EXTRA / DPR}px`
-  canvas.style.marginTop = `-${EXTRA / DPR}px`
-  
-  // Cargar la máscara
-  mask = await new Promise((resolve) => {
-    const blob = new Blob([SVG_SRC], { type: 'image/svg+xml' })
-    const url  = URL.createObjectURL(blob)
-    const img  = new Image()
-    img.onload = () => {
-      const off = document.createElement('canvas')
-      off.width = RENDER_W; off.height = RENDER_H
-      const oc = off.getContext('2d')
-      oc.drawImage(img, 0, 0, RENDER_W, RENDER_H)
-      URL.revokeObjectURL(url)
-      resolve(oc.getImageData(0, 0, RENDER_W, RENDER_H))
-    }
-    img.src = url
-  })
-}
+// ── SVG → máscara de alpha ────────────────────────────────────────
+const mask = await new Promise((resolve, reject) => {
+  const blob = new Blob([SVG_SRC], { type: 'image/svg+xml' })
+  const url  = URL.createObjectURL(blob)
+  const img  = new Image()
+  img.onload = () => {
+    const off = document.createElement('canvas')
+    off.width = RENDER_W; off.height = RENDER_H
+    const oc = off.getContext('2d')
+    oc.drawImage(img, 0, 0, RENDER_W, RENDER_H)
+    URL.revokeObjectURL(url)
+    resolve(oc.getImageData(0, 0, RENDER_W, RENDER_H))
+  }
+  img.onerror = () => { URL.revokeObjectURL(url); reject() }
+  img.src = url
+})
 
 function maskAlpha(x, y) {
   const px = Math.round(x), py = Math.round(y)
@@ -100,7 +95,7 @@ function maskAlpha(x, y) {
 }
 
 // ══════════════════════════════════════════════════════════════════
-//  PARTÍCULAS Y LAYOUT
+//  LAYOUT
 // ══════════════════════════════════════════════════════════════════
 let particles   = []
 let layoutCache = null
@@ -109,42 +104,63 @@ function computeLayout() {
   const fontSizePx = cfg.fontSize * DPR
   const font       = `${cfg.fontWeight} ${fontSizePx}px ${FONT_FAMILY}`
   const lineH      = Math.round(cfg.fontSize * cfg.lineHeight * DPR)
+  const pixelMode  = cfg.fontSize <= 4
+  const fixedCellW = cfg.fontSize * 0.62 * DPR
+
   ctx.font = font
 
-  const rows = Math.ceil(RENDER_H / lineH) + 2
-  const longText = WORD.repeat(Math.ceil((rows * 50) / WORD.length) + 4)
+  const rows     = Math.ceil(RENDER_H / lineH) + 2
+  const estCols  = Math.ceil(RENDER_W / (cfg.fontSize * DPR * 0.55))
+  const longText = WORD.repeat(Math.ceil((rows * estCols * 2) / WORD.length) + 4)
 
-  const prepared = prepareWithSegments(longText, font)
+  const prepared  = prepareWithSegments(longText, font)
   const { lines } = layoutWithLines(prepared, RENDER_W, lineH)
 
   const lineCharX = lines.map(line => {
     const xs = [0]; let cum = 0
     for (let i = 0; i < line.text.length; i++) {
-      let charW = ctx.measureText(line.text[i]).width + cfg.letterSpacing * DPR
-      if (line.text[i] === ' ') charW += cfg.wordSpacing * DPR
+      let charW = 0
+      if (pixelMode) {
+        charW = fixedCellW
+      } else {
+        charW = ctx.measureText(line.text[i]).width + cfg.letterSpacing * DPR
+        if (line.text[i] === ' ') charW += cfg.wordSpacing * DPR
+      }
       cum += charW
       xs.push(cum)
     }
     return xs
   })
-  layoutCache = { lines, lineCharX, lineH, fontSizePx, font }
+
+  layoutCache = { lines, lineCharX, lineH, fontSizePx, font, pixelMode }
 }
 
 function findCenterPhrase() {
   const { lines, lineCharX, lineH, fontSizePx } = layoutCache
   let best = null, bestDist = Infinity
+
   for (let li = 0; li < lines.length; li++) {
-    const text = lines[li].text, xs = lineCharX[li], oy = li * lineH
-    let from = 0
+    const text = lines[li].text
+    const xs   = lineCharX[li]
+    let from   = 0
+
     while (true) {
       const idx = text.indexOf(PHRASE, from)
       if (idx === -1) break
-      const cx = (xs[idx] + xs[idx+PHRASE.length]) / 2
+      const oy = li * lineH
+
+      const cx = (xs[idx] + xs[idx + PHRASE.length]) / 2
       const cy = oy + fontSizePx / 2
-      const d  = Math.hypot(cx - RENDER_W/2, cy - RENDER_H/2)
+      const d  = Math.hypot(cx - RENDER_W / 2, cy - RENDER_H / 2)
+
       if (d < bestDist) {
         bestDist = d
-        best = { x: xs[idx], y: oy, w: xs[idx+PHRASE.length] - xs[idx], charStart: idx, charEnd: idx+PHRASE.length, rowIdx: li }
+        best = {
+          x: xs[idx], y: oy,
+          w: xs[idx + PHRASE.length] - xs[idx],
+          h: lineH, rowIdx: li,
+          charStart: idx, charEnd: idx + PHRASE.length,
+        }
       }
       from = idx + 1
     }
@@ -155,124 +171,253 @@ function findCenterPhrase() {
 function buildParticles(phraseRect) {
   const { lines, lineCharX, lineH, fontSizePx } = layoutCache
   const raw = []
+
   for (let li = 0; li < lines.length; li++) {
-    const text = lines[li].text, xs = lineCharX[li], oy = li * lineH
+    const text = lines[li].text
+    const xs   = lineCharX[li]
+    const oy   = li * lineH
+
     for (let ci = 0; ci < text.length; ci++) {
-      const x = xs[ci], cw = xs[ci+1] - xs[ci], sx = x + cw*0.5, sy = oy + fontSizePx*0.5
+      const x  = xs[ci], cw = xs[ci + 1] - xs[ci]
+      const sx = x + cw * 0.5, sy = oy + fontSizePx * 0.5
       const alpha = maskAlpha(sx, sy)
-      const isCentral = !!(phraseRect && li === phraseRect.rowIdx && ci >= phraseRect.charStart && ci < phraseRect.charEnd)
+      const isCentral = !!(phraseRect && li === phraseRect.rowIdx
+        && ci >= phraseRect.charStart && ci < phraseRect.charEnd)
+
       if (alpha >= cfg.alphaThresh) {
-        raw.push({ ox: x, oy, x, y: oy, vx: 0, vy: 0, ch: text[ci], color: COLOR_MAIN, cx: sx, rawA: alpha/255, isCentral })
+        raw.push({
+          ox: x, oy, x, y: oy, vx: 0, vy: 0,
+          ch: text[ci], cw, lineH,
+          color: COLOR_MAIN,
+          cx: sx, rawA: alpha / 255, isCentral,
+        })
       }
-      if (x > RENDER_W + 50) break
+      if (x > RENDER_W + cfg.fontSize * 2) break
     }
   }
-  const phraseCx = phraseRect.x + phraseRect.w/2
+
+  const phraseCx = phraseRect.x + phraseRect.w / 2
   let maxDx = 0
-  for (const p of raw) { const d=Math.abs(p.cx-phraseCx); if(d>maxDx) maxDx=d }
+  for (const p of raw) { const d = Math.abs(p.cx - phraseCx); if (d > maxDx) maxDx = d }
   for (const p of raw) {
     const dx = Math.abs(p.cx - phraseCx)
-    p.revealDelay = p.isCentral ? -FADE_IN_MS : (maxDx>0 ? dx/maxDx : 0) * WAVE_MS
+    p.revealDelay = p.isCentral ? -FADE_IN_MS : (maxDx > 0 ? dx / maxDx : 0) * WAVE_MS
   }
   particles = raw
 }
 
+// ══════════════════════════════════════════════════════════════════
+//  BIG PHRASE
+//  cssToRender = RENDER_W / canvasRect.width
+//  Convierte px de pantalla → px del buffer de render.
+//  Si el canvas se muestra al 100% de su tamaño inicial → cssToRender = DPR
+//  Si la pantalla es más pequeña y el canvas se encoge → cssToRender > DPR
+//  De este modo startX/startY y la escala de la frase grande siempre
+//  coinciden con lo que el usuario ve en pantalla.
+// ══════════════════════════════════════════════════════════════════
 let bigPhrase = null
-function setupBigPhrase(phraseRect, bigFontPx, startX, startY) {
+
+function setupBigPhrase(phraseRect, bigFontPx, startX, startY, cssToRender) {
   const smallFontPx = cfg.fontSize * DPR
+
   ctx.font = `${cfg.fontWeight} ${smallFontPx}px ${FONT_FAMILY}`
-  bigPhrase = { startTx: startX, startTy: startY, startScale: (bigFontPx * DPR) / smallFontPx, finalTx: phraseRect.x, finalTy: phraseRect.y }
+
+  // La frase grande ocupa bigFontPx px en pantalla.
+  // En el espacio del buffer de render eso equivale a bigFontPx * cssToRender px.
+  const scale = (bigFontPx * cssToRender) / smallFontPx
+
+  bigPhrase = {
+    startTx:    startX,
+    startTy:    startY,
+    startScale: scale,
+    finalTx:    phraseRect.x,
+    finalTy:    phraseRect.y,
+    finalScale: 1,
+  }
 }
 
+// ══════════════════════════════════════════════════════════════════
+//  MOUSE
+// ══════════════════════════════════════════════════════════════════
 const mouse = { x: -9999, y: -9999, active: false }
+
 window.addEventListener('mousemove', e => {
-  const r = canvas.getBoundingClientRect()
-  // Mapeo responsive de coordenadas del ratón al sistema interno del canvas
-  mouse.x = (e.clientX - r.left) * (canvas.width / r.width) - EXTRA
-  mouse.y = (e.clientY - r.top) * (canvas.height / r.height) - EXTRA
-  mouse.active = true
+  const r  = canvas.getBoundingClientRect()
+  // RENDER_W / r.width es siempre el factor correcto,
+  // independientemente del tamaño actual del canvas en pantalla
+  const sx = RENDER_W / r.width
+  const sy = RENDER_H / r.height
+  const cx = (e.clientX - r.left) * sx
+  const cy = (e.clientY - r.top)  * sy
+  const margin = cfg.cursorRadius * 1.5
+  const inZone = cx >= -margin && cx <= RENDER_W + margin
+              && cy >= -margin && cy <= RENDER_H + margin
+  if (inZone) {
+    mouse.x = cx; mouse.y = cy; mouse.active = true
+  } else {
+    mouse.active = false
+  }
 })
+window.addEventListener('mouseleave', () => { mouse.active = false })
 
-const lerp = (a, b, t) => a + (b-a)*t
+// ══════════════════════════════════════════════════════════════════
+//  HELPERS
+// ══════════════════════════════════════════════════════════════════
+const lerp           = (a, b, t) => a + (b - a) * t
 const easeInOutCubic = t => t < 0.5 ? 4 * t * t * t : 1 - Math.pow(-2 * t + 2, 3) / 2
-const easeOutCubic = t => 1 - Math.pow(1-t, 3)
+const easeOutCubic   = t => 1 - Math.pow(1 - t, 3)
 
-let animating=false, startTime=0
+// ══════════════════════════════════════════════════════════════════
+//  LOOP
+// ══════════════════════════════════════════════════════════════════
+let animating = false, startTime = 0
 
 function tick(now) {
   if (!animating) return
-  const elapsed = now - startTime
-  const shrinkEnd = PAUSE_MS + SHRINK_MS
-  const shrinkT = Math.max(0, Math.min(1, (elapsed - PAUSE_MS) / SHRINK_MS))
 
-  ctx.clearRect(-EXTRA, -EXTRA, canvas.width, canvas.height)
-  ctx.save()
-  ctx.translate(EXTRA, EXTRA) // Todo el dibujo se desplaza para el padding
-  
-  ctx.font = `${cfg.fontWeight} ${cfg.fontSize*DPR}px ${FONT_FAMILY}`
+  const elapsed   = now - startTime
+  const shrinkEnd = PAUSE_MS + SHRINK_MS
+  const shrinkT   = Math.max(0, Math.min(1, (elapsed - PAUSE_MS) / SHRINK_MS))
+
+  ctx.clearRect(0, 0, RENDER_W, RENDER_H)
+  ctx.font         = `${cfg.fontWeight} ${cfg.fontSize * DPR}px ${FONT_FAMILY}`
   ctx.textBaseline = 'top'
 
+  // ── Fase A: frase grande se encoge hacia el mosaico ──────────────
   if (shrinkT < 1) {
-    const e = easeInOutCubic(shrinkT)
-    const tx = lerp(bigPhrase.startTx, bigPhrase.finalTx, e)
-    const ty = lerp(bigPhrase.startTy, bigPhrase.finalTy, e)
-    const s  = lerp(bigPhrase.startScale, 1, e)
+    const e  = easeInOutCubic(shrinkT)
+    const tx = lerp(bigPhrase.startTx,    bigPhrase.finalTx,    e)
+    const ty = lerp(bigPhrase.startTy,    bigPhrase.finalTy,    e)
+    const s  = lerp(bigPhrase.startScale, bigPhrase.finalScale, e)
+
     ctx.save()
-    ctx.translate(tx, ty); ctx.scale(s, s)
-    ctx.letterSpacing = "-0.028rem"
-    const part1 = "A ", part2 = "pixel", part3 = " boutique"
+    ctx.translate(tx, ty)
+    ctx.scale(s, s)
+
+    // Interpolar color de "pixel" (mist → main) durante el shrink
+    const curR = Math.round(lerp(COLOR_MIST.r, COLOR_MAIN.r, e))
+    const curG = Math.round(lerp(COLOR_MIST.g, COLOR_MAIN.g, e))
+    const curB = Math.round(lerp(COLOR_MIST.b, COLOR_MAIN.b, e))
+
+    const part1 = 'A '
+    const part2 = 'pixel'
+    const part3 = ' boutique'
+
     ctx.fillStyle = `rgb(${COLOR_MAIN.r},${COLOR_MAIN.g},${COLOR_MAIN.b})`
     ctx.fillText(part1, 0, 0)
-    let off = ctx.measureText(part1).width
-    ctx.fillStyle = `rgb(${Math.round(lerp(COLOR_MIST.r, COLOR_MAIN.r, e))},${Math.round(lerp(COLOR_MIST.g, COLOR_MAIN.g, e))},${Math.round(lerp(COLOR_MIST.b, COLOR_MAIN.b, e))})`
-    ctx.fillText(part2, off, 0); off += ctx.measureText(part2).width
+    let offset = ctx.measureText(part1).width
+
+    ctx.fillStyle = `rgb(${curR},${curG},${curB})`
+    ctx.fillText(part2, offset, 0)
+    offset += ctx.measureText(part2).width
+
     ctx.fillStyle = `rgb(${COLOR_MAIN.r},${COLOR_MAIN.g},${COLOR_MAIN.b})`
-    ctx.fillText(part3, off, 0)
+    ctx.fillText(part3, offset, 0)
+
     ctx.restore()
   }
 
+  // ── Fase B: partículas con física + ola de fade ──────────────────
   if (elapsed >= shrinkEnd) {
     const waveElapsed = elapsed - shrinkEnd
-    ctx.letterSpacing = "0px"
+    const cursorR     = cfg.cursorRadius * DPR
+    const cursorR2    = cursorR * cursorR
+    const retSpeed    = cfg.returnSpeed / 100
+
     for (const p of particles) {
       const localT = waveElapsed - p.revealDelay
       if (localT <= 0) continue
-      const alpha = p.rawA * easeOutCubic(Math.min(localT/FADE_IN_MS, 1))
+
+      const alpha = p.rawA * easeOutCubic(Math.min(localT / FADE_IN_MS, 1))
+
       if (mouse.active) {
-        const dx = p.x - mouse.x, dy = p.y - mouse.y, d2 = dx*dx + dy*dy
-        if (d2 < (cfg.cursorRadius*DPR)**2 && d2 > 0) {
-          const d = Math.sqrt(d2), f = ((cfg.cursorRadius*DPR-d)/(cfg.cursorRadius*DPR))**2 * cfg.cursorForce * 0.5, a = Math.atan2(dy, dx)
-          p.vx += Math.cos(a)*f; p.vy += Math.sin(a)*f
+        const dx = p.x - mouse.x, dy = p.y - mouse.y
+        const d2 = dx * dx + dy * dy
+        if (d2 < cursorR2 && d2 > 0) {
+          const d   = Math.sqrt(d2)
+          const f   = ((cursorR - d) / cursorR) ** 2 * cfg.cursorForce * 0.5
+          const ang = Math.atan2(dy, dx)
+          p.vx += Math.cos(ang) * f
+          p.vy += Math.sin(ang) * f
         }
       }
-      p.vx += (p.ox-p.x)*(cfg.returnSpeed/100); p.vy += (p.oy-p.y)*(cfg.returnSpeed/100)
-      p.vx *= cfg.friction; p.vy *= cfg.friction
-      p.x += p.vx; p.y += p.vy
-      ctx.fillStyle = `rgba(${COLOR_MAIN.r},${COLOR_MAIN.g},${COLOR_MAIN.b},${alpha})`
-      ctx.fillText(p.ch, p.x, p.y)
+      p.vx += (p.ox - p.x) * retSpeed; p.vy += (p.oy - p.y) * retSpeed
+      p.vx *= cfg.friction;             p.vy *= cfg.friction
+      p.x  += p.vx;                     p.y  += p.vy
+
+      ctx.fillStyle = `rgba(${p.color.r},${p.color.g},${p.color.b},${alpha})`
+      layoutCache.pixelMode
+        ? ctx.fillRect(Math.round(p.x), Math.round(p.y), Math.ceil(p.cw), Math.ceil(p.lineH))
+        : ctx.fillText(p.ch, p.x, p.y)
     }
   }
-  ctx.restore()
+
   requestAnimationFrame(tick)
 }
 
-window.startLogoAnimation = async function() {
-  const container = document.querySelector('.load_container'), headingEl = document.querySelector('.load_container .heading-style-h4')
-  if (headingEl) cfg.bigFontPx = parseFloat(getComputedStyle(headingEl).fontSize)
-  
-  await initCanvas() // Re-inicializar dimensiones
+// ══════════════════════════════════════════════════════════════════
+//  API PÚBLICA
+// ══════════════════════════════════════════════════════════════════
+window.startLogoAnimation = async function () {
+  const container = document.querySelector('.load_container')
+  const headingEl = document.querySelector('.load_container .heading-style-h4')
+
+  // Esperar fuentes antes de medir cualquier cosa
+  await document.fonts.ready
+  try {
+    await Promise.all([
+      document.fonts.load(`${cfg.fontWeight} ${cfg.fontSize}px Satoshi`),
+      document.fonts.load(`${cfg.fontWeight} ${cfg.bigFontPx}px Satoshi`),
+    ])
+  } catch (_) {}
+
+  // ── Factor de conversión CSS px → render px ──────────────────────
+  // Se mide AHORA, con el canvas en su tamaño actual de pantalla.
+  // Si el canvas CSS tiene width: 100% y la pantalla es mobile,
+  // canvasRect.width será menor que DISPLAY_W, y cssToRender > DPR.
+  const canvasRect  = canvas.getBoundingClientRect()
+  const cssToRender = RENDER_W / canvasRect.width
+
+  // ── Posición del heading DOM → coordenadas del buffer de render ──
+  let startX = (RENDER_W - RENDER_W * 0.6) / 2  // fallback: centrado aprox.
+  let startY = (RENDER_H - cfg.bigFontPx * cssToRender) / 2
+
+  if (headingEl) {
+    // Leer fontSize real del DOM (respeta clamp/vw del CSS de Webflow)
+    cfg.bigFontPx = parseFloat(getComputedStyle(headingEl).fontSize)
+
+    const headingRect = headingEl.getBoundingClientRect()
+    // Convertir la diferencia de posición CSS a unidades del buffer de render
+    startX = (headingRect.left - canvasRect.left) * cssToRender
+    startY = (headingRect.top  - canvasRect.top + cfg.yOffsetDOM) * cssToRender
+
+    if (container) container.style.opacity = '0'
+  }
+
+  // ── Reset y rebuild ───────────────────────────────────────────────
+  animating   = false
+  particles   = []
+  bigPhrase   = null
+  layoutCache = null
+  ctx.clearRect(0, 0, RENDER_W, RENDER_H)
+  document.getElementById('tsc-logo-wrap').classList.remove('svg-mode')
+
   computeLayout()
   const phrase = findCenterPhrase()
-  if (!phrase) return
+  if (!phrase) {
+    console.warn('[tsc-animation] Frase no encontrada en la máscara SVG')
+    return
+  }
 
-  const hRect = headingEl.getBoundingClientRect(), cRect = canvas.getBoundingClientRect()
-  // Cálculo de coordenadas de inicio relativo al espacio interno del canvas (con EXTRA)
-  const startX = (hRect.left - cRect.left) * (canvas.width / cRect.width) - EXTRA
-  const startY = (hRect.top - cRect.top + cfg.yOffsetDOM) * (canvas.height / cRect.height) - EXTRA
-  
   buildParticles(phrase)
-  setupBigPhrase(phrase, cfg.bigFontPx, startX, startY)
-  if (container) container.style.opacity = 0
-  startTime = performance.now(); animating = true
+  setupBigPhrase(phrase, cfg.bigFontPx, startX, startY, cssToRender)
+
+  startTime = performance.now()
+  animating = true
   requestAnimationFrame(tick)
+}
+
+window.showLogoSVG = function () {
+  animating = false
+  document.getElementById('tsc-logo-wrap').classList.add('svg-mode')
 }
