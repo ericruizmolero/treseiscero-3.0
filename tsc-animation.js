@@ -7,19 +7,16 @@ const WORD    = 'A pixel boutique '
 const PHRASE  = 'A pixel boutique'
 
 const cfg = {
-
   fontSize:      6, fontWeight:    500, lineHeight:    0.9, letterSpacing: 0.4, wordSpacing:   -0.5,
-  
-  // ── 2. Ajuste de la Transición ──
-  yOffsetDOM:    5,     // Ajuste vertical (en píxeles) para evitar el salto
+  yOffsetDOM:    5, 
   
   // ── 3. Físicas e Interacción ──
-  alphaThresh:   8,     // Límite de opacidad de la máscara (1-255). Más bajo = más partículas.
-  cursorRadius:  150,   // Tamaño del círculo de repulsión del ratón
-  cursorForce:   4,     // Fuerza con la que empuja el ratón
-  returnSpeed:   1,     // Velocidad a la que las letras vuelven a su sitio (1 a 10)
+  alphaThresh:   8,
+  cursorRadius:  150,
+  cursorForce:   4,
+  returnSpeed:   1,
+  friction:      0.9,   // <-- ¡AÑADIMOS LA FRICCIÓN AQUÍ!
   
-  // (Esta variable se sobreescribe sola leyendo tu Webflow, no la toques)
   bigFontPx:     60,    
 }
 
@@ -32,7 +29,6 @@ const PAUSE_MS   = 100  // Tiempo que espera antes de empezar a encogerse
 const SHRINK_MS  = 600 // Tiempo que dura el encogimiento
 const WAVE_MS    = 300  // Velocidad de la ola que revela las letras
 const FADE_IN_MS = 250  // Velocidad a la que aparece cada letra individual
-const FRICTION   = 0.9 // Fricción física (0.9 = resbala mucho, 0.5 = frena rápido)
 
 let FONT_FAMILY = 'Satoshi, Arial, sans-serif'
 
@@ -320,7 +316,7 @@ function tick(now) {
         }
       }
       p.vx += (p.ox-p.x)*retSpeed; p.vy += (p.oy-p.y)*retSpeed
-      p.vx *= FRICTION;             p.vy *= FRICTION
+      p.vx *= cfg.friction;             p.vy *= cfg.friction
       p.x  += p.vx;                 p.y  += p.vy
 
       ctx.fillStyle = `rgba(${p.color.r},${p.color.g},${p.color.b},${alpha})`
@@ -384,38 +380,95 @@ window.startLogoAnimation = async function() {
 window.showLogoSVG = function() {
   document.getElementById('tsc-logo-wrap').classList.add('svg-mode')
 }
-
 // ══════════════════════════════════════════════════════════════════
 //  🛠️ DEBUG PANEL (BORRAR AL TERMINAR)
 // ══════════════════════════════════════════════════════════════════
 function createDebugPanel() {
   const panel = document.createElement('div');
   panel.style.cssText = `
-    position: fixed; bottom: 20px; right: 20px; width: 300px;
+    position: fixed; bottom: 20px; right: 20px; width: 320px;
     background: rgba(10, 15, 20, 0.95); color: #fff; padding: 15px;
     border-radius: 8px; z-index: 999999; font-family: monospace;
     font-size: 12px; box-shadow: 0 10px 30px rgba(0,0,0,0.5);
     border: 1px solid #333; backdrop-filter: blur(5px);
+    max-height: 90vh; overflow-y: auto;
   `;
 
-  const title = document.createElement('h3');
-  title.innerText = '⚙️ Ajustes del Canvas';
-  title.style.cssText = 'margin: 0 0 15px 0; border-bottom: 1px solid #444; padding-bottom: 5px; color: #4d65ff;';
-  panel.appendChild(title);
+  // --- SECCIÓN 1: LAYOUT ---
+  const titleLayout = document.createElement('h3');
+  titleLayout.innerText = '⚙️ Layout del Mosaico';
+  titleLayout.style.cssText = 'margin: 0 0 10px 0; border-bottom: 1px solid #444; padding-bottom: 5px; color: #4d65ff; font-size: 14px;';
+  panel.appendChild(titleLayout);
 
-  // Definimos los controles que queremos
-  const controls = [
-    { label: 'Tamaño de letra', key: 'fontSize', min: 2, max: 20, step: 0.5 },
+  const controlsLayout = [
+    { label: 'Tamaño letra', key: 'fontSize', min: 2, max: 20, step: 0.5 },
     { label: 'Interlineado', key: 'lineHeight', min: 0.5, max: 3, step: 0.05 },
     { label: 'Espacio Letras', key: 'letterSpacing', min: -5, max: 10, step: 0.1 },
-    { label: 'Espacio Palabras', key: 'wordSpacing', min: -5, max: 15, step: 0.5 },
-    { label: 'Ajuste Altura (Y)', key: 'yOffsetDOM', min: -50, max: 50, step: 1 },
-    { label: 'Grosor Texto', key: 'fontWeight', min: 100, max: 900, step: 100 },
+    { label: 'Espacio Palab.', key: 'wordSpacing', min: -5, max: 15, step: 0.5 },
+    { label: 'Ajuste (Y)', key: 'yOffsetDOM', min: -50, max: 50, step: 1 },
   ];
 
-  controls.forEach(c => {
+  controlsLayout.forEach(c => addControl(panel, c, true));
+
+  // --- SECCIÓN 2: FÍSICAS (HOVER) ---
+  const titlePhysics = document.createElement('h3');
+  titlePhysics.innerText = '🖱️ Físicas del Ratón';
+  titlePhysics.style.cssText = 'margin: 20px 0 10px 0; border-bottom: 1px solid #444; padding-bottom: 5px; color: #ff4d65; font-size: 14px;';
+  panel.appendChild(titlePhysics);
+
+  const controlsPhysics = [
+    { label: 'Radio (Cursor)', key: 'cursorRadius', min: 50, max: 500, step: 10 },
+    { label: 'Fuerza Empuje', key: 'cursorForce', min: 0.5, max: 20, step: 0.5 },
+    { label: 'Vel. Retorno', key: 'returnSpeed', min: 0.1, max: 10, step: 0.1 },
+    { label: 'Fricción', key: 'friction', min: 0.5, max: 0.99, step: 0.01 },
+  ];
+  
+  controlsPhysics.forEach(c => addControl(panel, c, false));
+
+  // --- BOTONES ---
+  const btnWrap = document.createElement('div');
+  btnWrap.style.cssText = 'display: flex; gap: 10px; margin-top: 20px;';
+
+  const btnReplay = document.createElement('button');
+  btnReplay.innerText = '▶ Probar';
+  btnReplay.style.cssText = 'flex: 1; background: #4d65ff; color: white; border: none; padding: 8px; border-radius: 4px; cursor: pointer; font-weight: bold;';
+  btnReplay.onclick = () => {
+    const container = document.querySelector('.load_container');
+    if(container) container.style.opacity = 1;
+    window.startLogoAnimation();
+  };
+
+  const btnLog = document.createElement('button');
+  btnLog.innerText = '📋 Copiar Todo';
+  btnLog.style.cssText = 'flex: 1; background: #333; color: white; border: none; padding: 8px; border-radius: 4px; cursor: pointer;';
+  btnLog.onclick = () => {
+    const configToCopy = `
+// ── Layout ──
+fontSize:      ${cfg.fontSize},
+lineHeight:    ${cfg.lineHeight},
+letterSpacing: ${cfg.letterSpacing},
+wordSpacing:   ${cfg.wordSpacing},
+yOffsetDOM:    ${cfg.yOffsetDOM},
+
+// ── Físicas ──
+cursorRadius:  ${cfg.cursorRadius},
+cursorForce:   ${cfg.cursorForce},
+returnSpeed:   ${cfg.returnSpeed},
+friction:      ${cfg.friction},
+    `;
+    navigator.clipboard.writeText(configToCopy);
+    btnLog.innerText = '¡Copiado!';
+    setTimeout(() => btnLog.innerText = '📋 Copiar Todo', 1500);
+  };
+
+  btnWrap.appendChild(btnReplay);
+  btnWrap.appendChild(btnLog);
+  panel.appendChild(btnWrap);
+
+  // Función helper para crear los sliders
+  function addControl(parent, c, isLayout) {
     const wrap = document.createElement('div');
-    wrap.style.cssText = 'display: flex; justify-content: space-between; align-items: center; margin-bottom: 10px;';
+    wrap.style.cssText = 'display: flex; justify-content: space-between; align-items: center; margin-bottom: 8px;';
     
     const label = document.createElement('span');
     label.innerText = c.label;
@@ -424,25 +477,22 @@ function createDebugPanel() {
     input.type = 'range';
     input.min = c.min; input.max = c.max; input.step = c.step;
     input.value = cfg[c.key];
-    input.style.width = '100px';
+    input.style.width = '120px';
 
     const valDisplay = document.createElement('span');
     valDisplay.innerText = cfg[c.key];
-    valDisplay.style.cssText = 'width: 35px; text-align: right; color: #aab6b6;';
+    valDisplay.style.cssText = 'width: 40px; text-align: right; color: #aab6b6; font-weight: bold;';
 
-    // Cuando mueves el slider, actualiza la variable cfg
     input.addEventListener('input', (e) => {
       const val = parseFloat(e.target.value);
       cfg[c.key] = val;
       valDisplay.innerText = val;
 
-      // 🔥 MAGIA EN VIVO: Si tocamos el layout, reconstruimos el mosaico al instante
-      if (c.key !== 'yOffsetDOM') {
+      if (isLayout && c.key !== 'yOffsetDOM') {
         computeLayout();
         const phrase = findCenterPhrase();
         if (phrase) {
           buildParticles(phrase);
-          // Forzamos a las partículas a ir a su nueva posición y ser visibles
           particles.forEach(p => {
             p.x = p.ox; 
             p.y = p.oy;
@@ -455,47 +505,10 @@ function createDebugPanel() {
     wrap.appendChild(label);
     wrap.appendChild(input);
     wrap.appendChild(valDisplay);
-    panel.appendChild(wrap);
-  });
-
-  const btnWrap = document.createElement('div');
-  btnWrap.style.cssText = 'display: flex; gap: 10px; margin-top: 15px;';
-
-  const btnReplay = document.createElement('button');
-  btnReplay.innerText = '▶ Probar Animación';
-  btnReplay.style.cssText = 'flex: 1; background: #4d65ff; color: white; border: none; padding: 8px; border-radius: 4px; cursor: pointer; font-weight: bold;';
-  btnReplay.onclick = () => {
-    // Restauramos temporalmente la opacidad del DOM para leer bien sus medidas de nuevo
-    const container = document.querySelector('.load_container');
-    if(container) container.style.opacity = 1;
-    window.startLogoAnimation();
-  };
-
-  const btnLog = document.createElement('button');
-  btnLog.innerText = '📋 Copiar Datos';
-  btnLog.style.cssText = 'flex: 1; background: #333; color: white; border: none; padding: 8px; border-radius: 4px; cursor: pointer;';
-  btnLog.onclick = () => {
-    const configToCopy = `
-  fontSize:      ${cfg.fontSize},
-  fontWeight:    ${cfg.fontWeight},
-  lineHeight:    ${cfg.lineHeight},
-  letterSpacing: ${cfg.letterSpacing},
-  wordSpacing:   ${cfg.wordSpacing},
-  yOffsetDOM:    ${cfg.yOffsetDOM},
-    `;
-    navigator.clipboard.writeText(configToCopy);
-    btnLog.innerText = '¡Copiado!';
-    setTimeout(() => btnLog.innerText = '📋 Copiar Datos', 1500);
-  };
-
-  btnWrap.appendChild(btnReplay);
-  btnWrap.appendChild(btnLog);
-  panel.appendChild(btnWrap);
-
-  document.body.appendChild(panel);
+    parent.appendChild(wrap);
+  }
 }
 
-// Ejecutamos el panel directamente (como es un module, el DOM ya existe)
 if (document.readyState === 'loading') {
   document.addEventListener('DOMContentLoaded', createDebugPanel);
 } else {
