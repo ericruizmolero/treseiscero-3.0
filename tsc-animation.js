@@ -7,16 +7,24 @@ const WORD    = 'A pixel boutique '
 const PHRASE  = 'A pixel boutique'
 
 const cfg = {
-  fontSize:      6, fontWeight:    500, lineHeight:    0.9, letterSpacing: 0.4, wordSpacing:   -0.5,
-  yOffsetDOM:    5, 
+  // ── 1. Aspecto del Mosaico ──
+  fontSize:      6, 
+  fontWeight:    500, 
+  lineHeight:    0.9, 
+  letterSpacing: 0.4, 
+  wordSpacing:   -0.5,
+  
+  // ── 2. Ajuste de la Transición ──
+  yOffsetDOM:    5,     // Ajuste vertical (en píxeles) para evitar el salto
   
   // ── 3. Físicas e Interacción ──
-  alphaThresh:   8,
-  cursorRadius:  150,
-  cursorForce:   4,
-  returnSpeed:   1,
-  friction:      0.9,   // <-- ¡AÑADIMOS LA FRICCIÓN AQUÍ!
+  alphaThresh:   8,     // Límite opacidad de máscara
+  cursorRadius:  150,   // Tamaño del círculo del ratón
+  cursorForce:   4,     // Fuerza con la que empuja
+  returnSpeed:   1,     // Velocidad de retorno
+  friction:      0.9,   // Fricción física (0.9 = resbala, 0.5 = frena)
   
+  // (Esta variable se sobreescribe sola leyendo tu Webflow)
   bigFontPx:     60,    
 }
 
@@ -25,13 +33,12 @@ const COLOR_MAIN = { r: 2, g: 45, b: 66 }     // Azul oscuro
 const COLOR_MIST = { r: 170, g: 182, b: 182 } // Gris claro (#aab6b6)
 
 // ── 5. Tiempos de Animación (En milisegundos) ──
-const PAUSE_MS   = 100  // Tiempo que espera antes de empezar a encogerse
-const SHRINK_MS  = 600 // Tiempo que dura el encogimiento
-const WAVE_MS    = 300  // Velocidad de la ola que revela las letras
-const FADE_IN_MS = 250  // Velocidad a la que aparece cada letra individual
+const PAUSE_MS   = 100  
+const SHRINK_MS  = 600 
+const WAVE_MS    = 300  
+const FADE_IN_MS = 250  
 
 let FONT_FAMILY = 'Satoshi, Arial, sans-serif'
-
 
 // ══════════════════════════════════════════════════════════════════
 //  SVG MASK
@@ -108,7 +115,6 @@ function computeLayout() {
   const prepared  = prepareWithSegments(longText, font)
   const { lines } = layoutWithLines(prepared, RENDER_W, lineH)
 
-  // Aquí procesamos el espaciado entre letras Y palabras
   const lineCharX = lines.map(line => {
     const xs = [0]; let cum = 0
     for (let i = 0; i < line.text.length; i++) {
@@ -117,7 +123,6 @@ function computeLayout() {
         charW = fixedCellW;
       } else {
         charW = ctx.measureText(line.text[i]).width + cfg.letterSpacing * DPR;
-        // Si la letra actual es un espacio, le sumamos el wordSpacing
         if (line.text[i] === ' ') {
           charW += cfg.wordSpacing * DPR; 
         }
@@ -183,7 +188,7 @@ function buildParticles(phraseRect) {
         raw.push({
           ox: x, oy, x, y: oy, vx: 0, vy: 0,
           ch: text[ci], cw, lineH, 
-          color: COLOR_MAIN, // Simplificado, todo acaba en color MAIN
+          color: COLOR_MAIN, 
           cx: sx, rawA: alpha/255, isCentral
         })
       }
@@ -237,7 +242,6 @@ window.addEventListener('mouseleave', () => { mouse.active=false })
 //  RENDER LOOP
 // ══════════════════════════════════════════════════════════════════
 const lerp           = (a, b, t) => a + (b-a)*t
-// Easing orgánico: arranca suave, acelera en el medio, y frena con delicadeza
 const easeInOutCubic = t => t < 0.5 ? 4 * t * t * t : 1 - Math.pow(-2 * t + 2, 3) / 2;
 const easeOutCubic   = t => 1 - Math.pow(1-t, 3)
 
@@ -264,7 +268,6 @@ function tick(now) {
     ctx.translate(tx, ty)
     ctx.scale(s, s)
     
-    // El kerning se queda idéntico a Webflow durante la caída
     ctx.letterSpacing = "-0.028rem" 
 
     const part1 = "A "
@@ -275,7 +278,6 @@ function tick(now) {
     ctx.fillText(part1, 0, 0)
     let offset = ctx.measureText(part1).width
     
-    // Interpolar de MIST a MAIN suavemente
     const curR = Math.round(lerp(COLOR_MIST.r, COLOR_MAIN.r, e))
     const curG = Math.round(lerp(COLOR_MIST.g, COLOR_MAIN.g, e))
     const curB = Math.round(lerp(COLOR_MIST.b, COLOR_MAIN.b, e))
@@ -292,7 +294,6 @@ function tick(now) {
 
   // ── Fase B: Mosaico espaciado con interacciones ──────────────────
   if (elapsed >= shrinkEnd) {
-    // Se elimina el kerning negativo para dibujar el mosaico de fondo
     ctx.letterSpacing = "0px" 
     
     const waveElapsed = elapsed - shrinkEnd
@@ -316,7 +317,10 @@ function tick(now) {
         }
       }
       p.vx += (p.ox-p.x)*retSpeed; p.vy += (p.oy-p.y)*retSpeed
+      
+      // 🔥 AQUÍ ES DONDE APLICAMOS LA FRICCIÓN DINÁMICA
       p.vx *= cfg.friction;             p.vy *= cfg.friction
+      
       p.x  += p.vx;                 p.y  += p.vy
 
       ctx.fillStyle = `rgba(${p.color.r},${p.color.g},${p.color.b},${alpha})`
@@ -380,6 +384,7 @@ window.startLogoAnimation = async function() {
 window.showLogoSVG = function() {
   document.getElementById('tsc-logo-wrap').classList.add('svg-mode')
 }
+
 // ══════════════════════════════════════════════════════════════════
 //  🛠️ DEBUG PANEL (BORRAR AL TERMINAR)
 // ══════════════════════════════════════════════════════════════════
