@@ -130,26 +130,27 @@ function findCenterPhrase() {
     const text = lines[li].text
     const xs   = lineCharX[li]
     let from = 0
+    
     while (true) {
       const idx = text.indexOf(PHRASE, from)
       if (idx === -1) break
       const oy = li * lineH
-      let ok = true
-      for (let ci = idx; ci < idx + PHRASE.length; ci++) {
-        if (text[ci] === ' ') continue
-        if (maskAlpha((xs[ci]+xs[ci+1])/2, oy + fontSizePx*0.5) < cfg.alphaThresh) { ok=false; break }
-      }
-      if (ok) {
-        const cx = (xs[idx] + xs[idx+PHRASE.length]) / 2
-        const d  = Math.hypot(cx - RENDER_W/2, oy + fontSizePx/2 - RENDER_H/2)
-        if (d < bestDist) {
-          bestDist = d
-          best = {
-            x: xs[idx], y: oy,
-            w: xs[idx+PHRASE.length] - xs[idx],
-            h: lineH, rowIdx: li,
-            charStart: idx, charEnd: idx+PHRASE.length
-          }
+      
+      // Calculamos el centro horizontal y vertical de esta frase en concreto
+      const cx = (xs[idx] + xs[idx+PHRASE.length]) / 2
+      const cy = oy + fontSizePx / 2
+      
+      // Medimos la distancia matemática de esta frase hasta el centro exacto del canvas
+      const d  = Math.hypot(cx - RENDER_W/2, cy - RENDER_H/2)
+      
+      // Nos quedamos siempre con la que esté más cerca del centro, ignorando la máscara
+      if (d < bestDist) {
+        bestDist = d
+        best = {
+          x: xs[idx], y: oy,
+          w: xs[idx+PHRASE.length] - xs[idx],
+          h: lineH, rowIdx: li,
+          charStart: idx, charEnd: idx+PHRASE.length
         }
       }
       from = idx + 1
