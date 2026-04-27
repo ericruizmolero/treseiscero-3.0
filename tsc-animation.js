@@ -9,7 +9,7 @@ const PHRASE  = 'A pixel boutique'
 // 🎨 Configuración de colores
 const COLOR_MAIN = { r: 2, g: 45, b: 66 }
 // Reemplaza estos valores RGB por tu color "urban-mist" real
-const COLOR_MIST = { r: 153, g: 163, b: 164 } 
+const COLOR_MIST = { r: 170, g: 182, b: 182 } // Este es tu #aab6b6
 
 const PAUSE_MS   = 500
 const SHRINK_MS  = 1500
@@ -265,7 +265,7 @@ function tick(now) {
     ctx.scale(s, s)
     
     // 🔥 ESTA ES LA MAGIA: Aplicamos el espaciado de Webflow SÓLO a este texto
-    ctx.letterSpacing = "-0.03rem"
+    ctx.letterSpacing = "-0.028rem"
 
     const part1 = "A "
     const part2 = "pixel"
