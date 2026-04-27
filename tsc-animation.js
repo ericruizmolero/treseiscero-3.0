@@ -1,3 +1,4 @@
+
 import { prepareWithSegments, layoutWithLines } from 'https://esm.sh/@chenglou/pretext'
 
 // ══════════════════════════════════════════════════════════════════
@@ -7,32 +8,23 @@ const WORD    = 'A pixel boutique '
 const PHRASE  = 'A pixel boutique'
 
 const cfg = {
-  // ── 1. Aspecto del Mosaico ──
   fontSize:      6, 
   fontWeight:    500, 
   lineHeight:    0.9, 
   letterSpacing: 0.4, 
   wordSpacing:   -0.5,
-  
-  // ── 2. Ajuste de la Transición ──
-  yOffsetDOM:    5,     // Ajuste vertical (en píxeles) para evitar el salto
-  
-  // ── 3. Físicas e Interacción ──
-  alphaThresh:   8,     // Límite opacidad de máscara
-  cursorRadius:  150,   // Tamaño del círculo del ratón
-  cursorForce:   4,     // Fuerza con la que empuja
-  returnSpeed:   1,     // Velocidad de retorno
-  friction:      0.9,   // Fricción física (0.9 = resbala, 0.5 = frena)
-  
-  // (Esta variable se sobreescribe sola leyendo tu Webflow)
+  yOffsetDOM:    5,     
+  alphaThresh:   8,     
+  cursorRadius:  150,   
+  cursorForce:   4,     
+  returnSpeed:   1,     
+  friction:      0.9,   
   bigFontPx:     60,    
 }
 
-// ── 4. Colores (En formato RGB) ──
-const COLOR_MAIN = { r: 2, g: 45, b: 66 }     // Azul oscuro
-const COLOR_MIST = { r: 170, g: 182, b: 182 } // Gris claro (#aab6b6)
+const COLOR_MAIN = { r: 2, g: 45, b: 66 }     
+const COLOR_MIST = { r: 170, g: 182, b: 182 } 
 
-// ── 5. Tiempos de Animación (En milisegundos) ──
 const PAUSE_MS   = 100  
 const SHRINK_MS  = 600 
 const WAVE_MS    = 300  
@@ -93,9 +85,6 @@ function maskAlpha(x, y) {
   return mask.data[(py * RENDER_W + px) * 4 + 3]
 }
 
-// ══════════════════════════════════════════════════════════════════
-//  LAYOUT
-// ══════════════════════════════════════════════════════════════════
 let particles   = []
 let layoutCache = null
 
@@ -222,9 +211,6 @@ function setupBigPhrase(phraseRect, bigFontPx, startX, startY) {
   }
 }
 
-// ══════════════════════════════════════════════════════════════════
-//  MOUSE
-// ══════════════════════════════════════════════════════════════════
 const mouse = { x: -9999, y: -9999, active: false }
 window.addEventListener('mousemove', e => {
   const r  = canvas.getBoundingClientRect()
@@ -238,9 +224,6 @@ window.addEventListener('mousemove', e => {
 })
 window.addEventListener('mouseleave', () => { mouse.active=false })
 
-// ══════════════════════════════════════════════════════════════════
-//  RENDER LOOP
-// ══════════════════════════════════════════════════════════════════
 const lerp           = (a, b, t) => a + (b-a)*t
 const easeInOutCubic = t => t < 0.5 ? 4 * t * t * t : 1 - Math.pow(-2 * t + 2, 3) / 2;
 const easeOutCubic   = t => 1 - Math.pow(1-t, 3)
@@ -257,7 +240,6 @@ function tick(now) {
   ctx.font = `${cfg.fontWeight} ${cfg.fontSize*DPR}px ${FONT_FAMILY}`
   ctx.textBaseline = 'top'
 
-  // ── Fase A: Animación orgánica y transición de color ──────────────
   if (shrinkT < 1) {
     const e  = easeInOutCubic(shrinkT)
     const tx = lerp(bigPhrase.startTx, bigPhrase.finalTx, e)
@@ -267,7 +249,6 @@ function tick(now) {
     ctx.save()
     ctx.translate(tx, ty)
     ctx.scale(s, s)
-    
     ctx.letterSpacing = "-0.028rem" 
 
     const part1 = "A "
@@ -292,7 +273,6 @@ function tick(now) {
     ctx.restore()
   }
 
-  // ── Fase B: Mosaico espaciado con interacciones ──────────────────
   if (elapsed >= shrinkEnd) {
     ctx.letterSpacing = "0px" 
     
@@ -317,10 +297,7 @@ function tick(now) {
         }
       }
       p.vx += (p.ox-p.x)*retSpeed; p.vy += (p.oy-p.y)*retSpeed
-      
-      // 🔥 AQUÍ ES DONDE APLICAMOS LA FRICCIÓN DINÁMICA
       p.vx *= cfg.friction;             p.vy *= cfg.friction
-      
       p.x  += p.vx;                 p.y  += p.vy
 
       ctx.fillStyle = `rgba(${p.color.r},${p.color.g},${p.color.b},${alpha})`
@@ -330,13 +307,8 @@ function tick(now) {
         : ctx.fillText(p.ch, p.x, p.y)
     }
   }
-
   requestAnimationFrame(tick)
 }
-
-// ══════════════════════════════════════════════════════════════════
-//  API PÚBLICA
-// ══════════════════════════════════════════════════════════════════
 
 window.startLogoAnimation = async function() {
   const container = document.querySelector('.load_container')
@@ -359,10 +331,8 @@ window.startLogoAnimation = async function() {
   if (headingEl) {
     const headingRect = headingEl.getBoundingClientRect()
     const canvasRect  = canvas.getBoundingClientRect()
-    
     startX = (headingRect.left - canvasRect.left) * DPR
     startY = (headingRect.top - canvasRect.top + cfg.yOffsetDOM) * DPR
-    
     if (container) container.style.opacity = 0
   }
 
@@ -372,7 +342,7 @@ window.startLogoAnimation = async function() {
 
   computeLayout()
   const phrase = findCenterPhrase()
-  if (!phrase) { console.warn('[tsc] frase no encontrada en centro geométrico'); return }
+  if (!phrase) return;
 
   buildParticles(phrase)
   setupBigPhrase(phrase, cfg.bigFontPx, startX, startY)
@@ -381,15 +351,14 @@ window.startLogoAnimation = async function() {
   requestAnimationFrame(tick)
 }
 
-window.showLogoSVG = function() {
-  document.getElementById('tsc-logo-wrap').classList.add('svg-mode')
-}
-
 // ══════════════════════════════════════════════════════════════════
-//  🛠️ DEBUG PANEL (BORRAR AL TERMINAR)
+//  🛠️ DEBUG PANEL (DIRECTO AL DOM)
 // ══════════════════════════════════════════════════════════════════
 function createDebugPanel() {
+  if (document.getElementById('tsc-debug-panel')) return;
+
   const panel = document.createElement('div');
+  panel.id = 'tsc-debug-panel';
   panel.style.cssText = `
     position: fixed; bottom: 20px; right: 20px; width: 320px;
     background: rgba(10, 15, 20, 0.95); color: #fff; padding: 15px;
@@ -399,7 +368,6 @@ function createDebugPanel() {
     max-height: 90vh; overflow-y: auto;
   `;
 
-  // --- SECCIÓN 1: LAYOUT ---
   const titleLayout = document.createElement('h3');
   titleLayout.innerText = '⚙️ Layout del Mosaico';
   titleLayout.style.cssText = 'margin: 0 0 10px 0; border-bottom: 1px solid #444; padding-bottom: 5px; color: #4d65ff; font-size: 14px;';
@@ -412,10 +380,8 @@ function createDebugPanel() {
     { label: 'Espacio Palab.', key: 'wordSpacing', min: -5, max: 15, step: 0.5 },
     { label: 'Ajuste (Y)', key: 'yOffsetDOM', min: -50, max: 50, step: 1 },
   ];
-
   controlsLayout.forEach(c => addControl(panel, c, true));
 
-  // --- SECCIÓN 2: FÍSICAS (HOVER) ---
   const titlePhysics = document.createElement('h3');
   titlePhysics.innerText = '🖱️ Físicas del Ratón';
   titlePhysics.style.cssText = 'margin: 20px 0 10px 0; border-bottom: 1px solid #444; padding-bottom: 5px; color: #ff4d65; font-size: 14px;';
@@ -427,10 +393,8 @@ function createDebugPanel() {
     { label: 'Vel. Retorno', key: 'returnSpeed', min: 0.1, max: 10, step: 0.1 },
     { label: 'Fricción', key: 'friction', min: 0.5, max: 0.99, step: 0.01 },
   ];
-  
   controlsPhysics.forEach(c => addControl(panel, c, false));
 
-  // --- BOTONES ---
   const btnWrap = document.createElement('div');
   btnWrap.style.cssText = 'display: flex; gap: 10px; margin-top: 20px;';
 
@@ -448,14 +412,11 @@ function createDebugPanel() {
   btnLog.style.cssText = 'flex: 1; background: #333; color: white; border: none; padding: 8px; border-radius: 4px; cursor: pointer;';
   btnLog.onclick = () => {
     const configToCopy = `
-// ── Layout ──
 fontSize:      ${cfg.fontSize},
 lineHeight:    ${cfg.lineHeight},
 letterSpacing: ${cfg.letterSpacing},
 wordSpacing:   ${cfg.wordSpacing},
 yOffsetDOM:    ${cfg.yOffsetDOM},
-
-// ── Físicas ──
 cursorRadius:  ${cfg.cursorRadius},
 cursorForce:   ${cfg.cursorForce},
 returnSpeed:   ${cfg.returnSpeed},
@@ -470,20 +431,16 @@ friction:      ${cfg.friction},
   btnWrap.appendChild(btnLog);
   panel.appendChild(btnWrap);
 
-  // Función helper para crear los sliders
   function addControl(parent, c, isLayout) {
     const wrap = document.createElement('div');
     wrap.style.cssText = 'display: flex; justify-content: space-between; align-items: center; margin-bottom: 8px;';
-    
     const label = document.createElement('span');
     label.innerText = c.label;
-    
     const input = document.createElement('input');
     input.type = 'range';
     input.min = c.min; input.max = c.max; input.step = c.step;
     input.value = cfg[c.key];
     input.style.width = '120px';
-
     const valDisplay = document.createElement('span');
     valDisplay.innerText = cfg[c.key];
     valDisplay.style.cssText = 'width: 40px; text-align: right; color: #aab6b6; font-weight: bold;';
@@ -498,32 +455,20 @@ friction:      ${cfg.friction},
         const phrase = findCenterPhrase();
         if (phrase) {
           buildParticles(phrase);
-          particles.forEach(p => {
-            p.x = p.ox; 
-            p.y = p.oy;
-            p.revealDelay = -9999; 
-          });
+          particles.forEach(p => { p.x = p.ox; p.y = p.oy; p.revealDelay = -9999; });
         }
       }
     });
-
-    wrap.appendChild(label);
-    wrap.appendChild(input);
-    wrap.appendChild(valDisplay);
+    wrap.appendChild(label); wrap.appendChild(input); wrap.appendChild(valDisplay);
     parent.appendChild(wrap);
   }
+  document.body.appendChild(panel);
 }
 
-// Exponemos la función a la ventana global por si queremos llamarla desde la consola
-window.crearPanel = createDebugPanel;
-
-// Forzamos la aparición del panel sin condiciones frágiles
+// Dibujamos el panel obligatoriamente a los 1.5 segundos (sin condiciones trampa)
 setTimeout(() => {
-  // Le ponemos un ID único al panel dentro de la función, pero aquí nos aseguramos de que no exista
-  if (!document.getElementById('tsc-debug-panel')) { 
-    createDebugPanel();
-    // Le asignamos el ID al panel recién creado para no duplicarlo
-    const paneles = document.querySelectorAll('div');
-    paneles[paneles.length - 1].id = 'tsc-debug-panel';
-  }
-}, 1000);
+  createDebugPanel();
+}, 1500);
+
+// Lo anclamos también al objeto Window por si quieres llamarlo a mano
+window.crearPanelForzado = createDebugPanel;
