@@ -388,3 +388,103 @@ window.startLogoAnimation = async function() {
 window.showLogoSVG = function() {
   document.getElementById('tsc-logo-wrap').classList.add('svg-mode')
 }
+
+// ══════════════════════════════════════════════════════════════════
+//  🛠️ DEBUG PANEL (BORRAR AL TERMINAR)
+// ══════════════════════════════════════════════════════════════════
+function createDebugPanel() {
+  const panel = document.createElement('div');
+  panel.style.cssText = `
+    position: fixed; bottom: 20px; right: 20px; width: 300px;
+    background: rgba(10, 15, 20, 0.95); color: #fff; padding: 15px;
+    border-radius: 8px; z-index: 999999; font-family: monospace;
+    font-size: 12px; box-shadow: 0 10px 30px rgba(0,0,0,0.5);
+    border: 1px solid #333; backdrop-filter: blur(5px);
+  `;
+
+  const title = document.createElement('h3');
+  title.innerText = '⚙️ Ajustes del Canvas';
+  title.style.cssText = 'margin: 0 0 15px 0; border-bottom: 1px solid #444; padding-bottom: 5px; color: #4d65ff;';
+  panel.appendChild(title);
+
+  // Definimos los controles que queremos
+  const controls = [
+    { label: 'Tamaño de letra', key: 'fontSize', min: 2, max: 20, step: 0.5 },
+    { label: 'Interlineado', key: 'lineHeight', min: 0.5, max: 3, step: 0.05 },
+    { label: 'Espacio Letras', key: 'letterSpacing', min: -5, max: 10, step: 0.1 },
+    { label: 'Espacio Palabras', key: 'wordSpacing', min: -5, max: 15, step: 0.5 },
+    { label: 'Ajuste Altura (Y)', key: 'yOffsetDOM', min: -50, max: 50, step: 1 },
+    { label: 'Grosor Texto', key: 'fontWeight', min: 100, max: 900, step: 100 },
+  ];
+
+  controls.forEach(c => {
+    const wrap = document.createElement('div');
+    wrap.style.cssText = 'display: flex; justify-content: space-between; align-items: center; margin-bottom: 10px;';
+    
+    const label = document.createElement('span');
+    label.innerText = c.label;
+    
+    const input = document.createElement('input');
+    input.type = 'range';
+    input.min = c.min; input.max = c.max; input.step = c.step;
+    input.value = cfg[c.key];
+    input.style.width = '100px';
+
+    const valDisplay = document.createElement('span');
+    valDisplay.innerText = cfg[c.key];
+    valDisplay.style.cssText = 'width: 35px; text-align: right; color: #aab6b6;';
+
+    // Cuando mueves el slider, actualiza la variable cfg
+    input.addEventListener('input', (e) => {
+      const val = parseFloat(e.target.value);
+      cfg[c.key] = val;
+      valDisplay.innerText = val;
+    });
+
+    wrap.appendChild(label);
+    wrap.appendChild(input);
+    wrap.appendChild(valDisplay);
+    panel.appendChild(wrap);
+  });
+
+  const btnWrap = document.createElement('div');
+  btnWrap.style.cssText = 'display: flex; gap: 10px; margin-top: 15px;';
+
+  const btnReplay = document.createElement('button');
+  btnReplay.innerText = '▶ Probar Animación';
+  btnReplay.style.cssText = 'flex: 1; background: #4d65ff; color: white; border: none; padding: 8px; border-radius: 4px; cursor: pointer; font-weight: bold;';
+  btnReplay.onclick = () => {
+    // Restauramos temporalmente la opacidad del DOM para leer bien sus medidas de nuevo
+    const container = document.querySelector('.load_container');
+    if(container) container.style.opacity = 1;
+    window.startLogoAnimation();
+  };
+
+  const btnLog = document.createElement('button');
+  btnLog.innerText = '📋 Copiar Datos';
+  btnLog.style.cssText = 'flex: 1; background: #333; color: white; border: none; padding: 8px; border-radius: 4px; cursor: pointer;';
+  btnLog.onclick = () => {
+    const configToCopy = `
+  fontSize:      ${cfg.fontSize},
+  fontWeight:    ${cfg.fontWeight},
+  lineHeight:    ${cfg.lineHeight},
+  letterSpacing: ${cfg.letterSpacing},
+  wordSpacing:   ${cfg.wordSpacing},
+  yOffsetDOM:    ${cfg.yOffsetDOM},
+    `;
+    navigator.clipboard.writeText(configToCopy);
+    btnLog.innerText = '¡Copiado!';
+    setTimeout(() => btnLog.innerText = '📋 Copiar Datos', 1500);
+  };
+
+  btnWrap.appendChild(btnReplay);
+  btnWrap.appendChild(btnLog);
+  panel.appendChild(btnWrap);
+
+  document.body.appendChild(panel);
+}
+
+// Ejecutamos el panel solo si estamos en la página (puedes borrar toda esta sección luego)
+window.addEventListener('DOMContentLoaded', () => {
+  createDebugPanel();
+});
