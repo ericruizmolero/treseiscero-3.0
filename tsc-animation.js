@@ -439,6 +439,21 @@ function createDebugPanel() {
       const val = parseFloat(e.target.value);
       cfg[c.key] = val;
       valDisplay.innerText = val;
+
+      // 🔥 MAGIA EN VIVO: Si tocamos el layout, reconstruimos el mosaico al instante
+      if (c.key !== 'yOffsetDOM') {
+        computeLayout();
+        const phrase = findCenterPhrase();
+        if (phrase) {
+          buildParticles(phrase);
+          // Forzamos a las partículas a ir a su nueva posición y ser visibles
+          particles.forEach(p => {
+            p.x = p.ox; 
+            p.y = p.oy;
+            p.revealDelay = -9999; 
+          });
+        }
+      }
     });
 
     wrap.appendChild(label);
