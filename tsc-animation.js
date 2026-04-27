@@ -514,9 +514,16 @@ friction:      ${cfg.friction},
   }
 }
 
-// Forzamos la aparición del panel dándole 1 segundo de respiro a Webflow
+// Exponemos la función a la ventana global por si queremos llamarla desde la consola
+window.crearPanel = createDebugPanel;
+
+// Forzamos la aparición del panel sin condiciones frágiles
 setTimeout(() => {
-  if (!document.querySelector('h3')) { // Comprobación extra por seguridad
+  // Le ponemos un ID único al panel dentro de la función, pero aquí nos aseguramos de que no exista
+  if (!document.getElementById('tsc-debug-panel')) { 
     createDebugPanel();
+    // Le asignamos el ID al panel recién creado para no duplicarlo
+    const paneles = document.querySelectorAll('div');
+    paneles[paneles.length - 1].id = 'tsc-debug-panel';
   }
 }, 1000);
