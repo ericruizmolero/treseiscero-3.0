@@ -55,46 +55,43 @@ const SVG_SRC = `<svg width="123" height="18" viewBox="0 0 123 18" fill="none" x
 </svg>`
 
 // ══════════════════════════════════════════════════════════════════
-//  CANVAS SETUP
-// ══════════════════════════════════════════════════════════════════
-// ══════════════════════════════════════════════════════════════════
-//  CANVAS SETUP (CON MARGEN PARA OVERFLOW)
+//  CANVAS SETUP (CON MARGEN PARA OVERFLOW Y RESPONSIVE)
 // ══════════════════════════════════════════════════════════════════
 const wrap   = document.getElementById('tsc-logo-wrap')
 const canvas = document.getElementById('tsc-canvas')
 const ctx    = canvas.getContext('2d')
 const DPR    = Math.min(window.devicePixelRatio || 1, 3)
 
-// 1. Calculamos el tamaño base
+// 1. Calculamos el tamaño real del logo (lo que llamaremos RENDER_W/H)
 const BASE_W = wrap.offsetWidth || Math.min(window.innerWidth * 0.9, 1000)
-const BASE_H = Math.round(BASE_W * (18 / 123))
+const RENDER_W = Math.round(BASE_W * DPR)
+const RENDER_H = Math.round(RENDER_W * (18 / 123))
 
-// 2. Añadimos un "extra" de espacio interno (ej: 200px por cada lado) 
-// para que las partículas tengan espacio para volar sin cortarse
+// 2. Añadimos un "extra" de espacio interno para que no se corten las letras
 const EXTRA = 200 * DPR 
 
-canvas.width  = (BASE_W * DPR) + (EXTRA * 2)
-canvas.height = (BASE_H * DPR) + (EXTRA * 2)
+// 3. El canvas físico es más grande que el logo para permitir el "overflow"
+canvas.width  = RENDER_W + (EXTRA * 2)
+canvas.height = RENDER_H + (EXTRA * 2)
 
-// 3. Aplicamos el estilo responsive pero permitiendo que el canvas sea más grande que su contenedor
+// 4. Estilos CSS para que sea responsive y el margen extra no rompa el layout de Webflow
 canvas.style.width    = `calc(100% + ${(EXTRA * 2) / DPR}px)`
-canvas.style.height   = `calc(auto + ${(EXTRA * 2) / DPR}px)`
+canvas.style.height   = "auto"
 canvas.style.marginLeft = `-${EXTRA / DPR}px`
 canvas.style.marginTop  = `-${EXTRA / DPR}px`
 canvas.style.display  = 'block'
 
-// 4. IMPORTANTE: Desplazamos todo el dibujo al centro para compensar el margen extra
+// 5. IMPORTANTE: Movemos el "punto 0" del dibujo al centro para compensar el margen
 ctx.translate(EXTRA, EXTRA)
 
-// Ahora, cuando el código use las coordenadas de la 'mask', 
-// se dibujará en el centro del canvas expandido.
-
+// ── SVG → máscara ────────────────────────────────────────────────
 const mask = await new Promise((resolve, reject) => {
   const blob = new Blob([SVG_SRC], { type: 'image/svg+xml' })
   const url  = URL.createObjectURL(blob)
   const img  = new Image()
   img.onload = () => {
     const off = document.createElement('canvas')
+    // La máscara solo mide lo que mide el logo original
     off.width = RENDER_W; off.height = RENDER_H
     const oc = off.getContext('2d')
     oc.drawImage(img, 0, 0, RENDER_W, RENDER_H)
@@ -107,6 +104,7 @@ const mask = await new Promise((resolve, reject) => {
 
 function maskAlpha(x, y) {
   const px = Math.round(x), py = Math.round(y)
+  // Comprobamos contra RENDER_W/H que ya están definidas arriba
   if (px < 0 || px >= RENDER_W || py < 0 || py >= RENDER_H) return 0
   return mask.data[(py * RENDER_W + px) * 4 + 3]
 }
@@ -123,6 +121,7 @@ function computeLayout() {
 
   ctx.font = font
 
+  // Usamos RENDER_W/H para que el texto se distribuya solo en el área del logo
   const rows     = Math.ceil(RENDER_H / lineH) + 2
   const estCols  = Math.ceil(RENDER_W / (cfg.fontSize * DPR * 0.55))
   const longText = WORD.repeat(Math.ceil((rows * estCols * 2) / WORD.length) + 4)
