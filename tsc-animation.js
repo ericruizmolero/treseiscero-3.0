@@ -1,36 +1,45 @@
 import { prepareWithSegments, layoutWithLines } from 'https://esm.sh/@chenglou/pretext'
 
 // ══════════════════════════════════════════════════════════════════
-//  CONFIG
+//  🕹️ PANEL DE CONTROL (MODIFICA ESTOS VALORES PARA PROBAR)
 // ══════════════════════════════════════════════════════════════════
 const WORD    = 'A pixel boutique '
 const PHRASE  = 'A pixel boutique'
 
-// 🎨 Configuración de colores
-const COLOR_MAIN = { r: 2, g: 45, b: 66 }
-// Reemplaza estos valores RGB por tu color "urban-mist" real
-const COLOR_MIST = { r: 170, g: 182, b: 182 } // Este es tu #aab6b6
-
-const PAUSE_MS   = 500
-const SHRINK_MS  = 1000
-const WAVE_MS    = 900
-const FADE_IN_MS = 250
-const FRICTION   = 0.75
-
 const cfg = {
-  fontSize:      8,     // Tamaño del texto del mosaico (según tu foto)
-  fontWeight:    500,
-  lineHeight:    1.25,  // Interlineado del mosaico (según tu foto)
-  letterSpacing: 0,     // Letra (separación) del mosaico en 0
-  alphaThresh:   8,
-  bigFontPx:     60,    // Se sobreescribirá abajo
-  cursorRadius:  150,
-  cursorForce:   4,
-  returnSpeed:   1,
-  yOffsetDOM:    5,     // ¡El valor que te ha dejado la altura perfecta!
+  // ── 1. Aspecto del Mosaico (Las partículas pequeñas) ──
+  fontSize:      8,     // Tamaño de las mini letras
+  fontWeight:    500,   // Grosor (100, 400, 500, etc.)
+  lineHeight:    1.25,  // Interlineado (1.25 = 125%)
+  letterSpacing: 0,     // Espaciado entre letras en las partículas
+  wordSpacing:   0,     // Espacio extra entre palabras <-- ¡NUEVO!
+  
+  // ── 2. Ajuste de la Transición ──
+  yOffsetDOM:    5,     // Ajuste vertical (en píxeles) para evitar el salto
+  
+  // ── 3. Físicas e Interacción ──
+  alphaThresh:   8,     // Límite de opacidad de la máscara (1-255). Más bajo = más partículas.
+  cursorRadius:  150,   // Tamaño del círculo de repulsión del ratón
+  cursorForce:   4,     // Fuerza con la que empuja el ratón
+  returnSpeed:   1,     // Velocidad a la que las letras vuelven a su sitio (1 a 10)
+  
+  // (Esta variable se sobreescribe sola leyendo tu Webflow, no la toques)
+  bigFontPx:     60,    
 }
 
+// ── 4. Colores (En formato RGB) ──
+const COLOR_MAIN = { r: 2, g: 45, b: 66 }     // Azul oscuro
+const COLOR_MIST = { r: 170, g: 182, b: 182 } // Gris claro (#aab6b6)
+
+// ── 5. Tiempos de Animación (En milisegundos) ──
+const PAUSE_MS   = 500  // Tiempo que espera antes de empezar a encogerse
+const SHRINK_MS  = 1000 // Tiempo que dura el encogimiento
+const WAVE_MS    = 900  // Velocidad de la ola que revela las letras
+const FADE_IN_MS = 250  // Velocidad a la que aparece cada letra individual
+const FRICTION   = 0.75 // Fricción física (0.9 = resbala mucho, 0.5 = frena rápido)
+
 let FONT_FAMILY = 'Satoshi, Arial, sans-serif'
+
 
 // ══════════════════════════════════════════════════════════════════
 //  SVG MASK
@@ -63,7 +72,6 @@ const RENDER_H  = Math.round(RENDER_W * (18 / 123))
 canvas.width  = RENDER_W
 canvas.height = RENDER_H
 
-// ── SVG → máscara ────────────────────────────────────────────────
 const mask = await new Promise((resolve, reject) => {
   const blob = new Blob([SVG_SRC], { type: 'image/svg+xml' })
   const url  = URL.createObjectURL(blob)
@@ -108,12 +116,21 @@ function computeLayout() {
   const prepared  = prepareWithSegments(longText, font)
   const { lines } = layoutWithLines(prepared, RENDER_W, lineH)
 
+  // Aquí procesamos el espaciado entre letras Y palabras
   const lineCharX = lines.map(line => {
     const xs = [0]; let cum = 0
     for (let i = 0; i < line.text.length; i++) {
-      cum += pixelMode
-        ? fixedCellW
-        : ctx.measureText(line.text[i]).width + cfg.letterSpacing * DPR
+      let charW = 0;
+      if (pixelMode) {
+        charW = fixedCellW;
+      } else {
+        charW = ctx.measureText(line.text[i]).width + cfg.letterSpacing * DPR;
+        // Si la letra actual es un espacio, le sumamos el wordSpacing
+        if (line.text[i] === ' ') {
+          charW += cfg.wordSpacing * DPR; 
+        }
+      }
+      cum += charW;
       xs.push(cum)
     }
     return xs
@@ -136,14 +153,10 @@ function findCenterPhrase() {
       if (idx === -1) break
       const oy = li * lineH
       
-      // Calculamos el centro horizontal y vertical de esta frase en concreto
       const cx = (xs[idx] + xs[idx+PHRASE.length]) / 2
       const cy = oy + fontSizePx / 2
-      
-      // Medimos la distancia matemática de esta frase hasta el centro exacto del canvas
       const d  = Math.hypot(cx - RENDER_W/2, cy - RENDER_H/2)
       
-      // Nos quedamos siempre con la que esté más cerca del centro, ignorando la máscara
       if (d < bestDist) {
         bestDist = d
         best = {
@@ -174,20 +187,11 @@ function buildParticles(phraseRect) {
       const isCentral = !!(phraseRect && li === phraseRect.rowIdx
         && ci >= phraseRect.charStart && ci < phraseRect.charEnd)
       
-      // Chequeo de color dinámico para la palabra "pixel"
-      let isMistChar = false
-      for (let s = Math.max(0, ci - 4); s <= ci; s++) {
-        if (text.substring(s, s + 5) === 'pixel') {
-          isMistChar = true; break;
-        }
-      }
-      const particleColor = isMistChar ? COLOR_MIST : COLOR_MAIN;
-// ELIMINA la lógica de 'isMistChar' y reemplázala por esto:
       if (alpha >= cfg.alphaThresh) {
         raw.push({
           ox: x, oy, x, y: oy, vx: 0, vy: 0,
           ch: text[ci], cw, lineH, 
-          color: COLOR_MAIN, // Todas las partículas heredan el color oscuro final
+          color: COLOR_MAIN, // Simplificado, todo acaba en color MAIN
           cx: sx, rawA: alpha/255, isCentral
         })
       }
@@ -241,9 +245,9 @@ window.addEventListener('mouseleave', () => { mouse.active=false })
 //  RENDER LOOP
 // ══════════════════════════════════════════════════════════════════
 const lerp           = (a, b, t) => a + (b-a)*t
-const easeOutCubic   = t => 1 - Math.pow(1-t, 3)
-// Nuevo easing orgánico: arranca suave, acelera, frena suave
+// Easing orgánico: arranca suave, acelera en el medio, y frena con delicadeza
 const easeInOutCubic = t => t < 0.5 ? 4 * t * t * t : 1 - Math.pow(-2 * t + 2, 3) / 2;
+const easeOutCubic   = t => 1 - Math.pow(1-t, 3)
 
 let animating=false, startTime=0
 
@@ -257,9 +261,9 @@ function tick(now) {
   ctx.font = `${cfg.fontWeight} ${cfg.fontSize*DPR}px ${FONT_FAMILY}`
   ctx.textBaseline = 'top'
 
-  // ── Fase A: big phrase shrink (con transición de color) ───────────
+  // ── Fase A: Animación orgánica y transición de color ──────────────
   if (shrinkT < 1) {
-    const e  = easeInOutCubic(shrinkT) // <-- Usamos el easing orgánico
+    const e  = easeInOutCubic(shrinkT)
     const tx = lerp(bigPhrase.startTx, bigPhrase.finalTx, e)
     const ty = lerp(bigPhrase.startTy, bigPhrase.finalTy, e)
     const s  = lerp(bigPhrase.startScale, bigPhrase.finalScale, e)
@@ -268,7 +272,8 @@ function tick(now) {
     ctx.translate(tx, ty)
     ctx.scale(s, s)
     
-    ctx.letterSpacing = "-0.03rem" 
+    // El kerning se queda idéntico a Webflow durante la caída
+    ctx.letterSpacing = "-0.028rem" 
 
     const part1 = "A "
     const part2 = "pixel"
@@ -278,12 +283,12 @@ function tick(now) {
     ctx.fillText(part1, 0, 0)
     let offset = ctx.measureText(part1).width
     
-    // 🔥 Transición de color dinámica (de MIST a MAIN) según avanza la animación
+    // Interpolar de MIST a MAIN suavemente
     const curR = Math.round(lerp(COLOR_MIST.r, COLOR_MAIN.r, e))
     const curG = Math.round(lerp(COLOR_MIST.g, COLOR_MAIN.g, e))
     const curB = Math.round(lerp(COLOR_MIST.b, COLOR_MAIN.b, e))
     
-    ctx.fillStyle = `rgba(${curR},${curG},${curB},1)` // El color se oscurece orgánicamente
+    ctx.fillStyle = `rgba(${curR},${curG},${curB},1)`
     ctx.fillText(part2, offset, 0)
     offset += ctx.measureText(part2).width
     
@@ -293,9 +298,11 @@ function tick(now) {
     ctx.restore()
   }
 
-  // ── Fase B: mosaico con física + ola de fade ───────────────────
+  // ── Fase B: Mosaico espaciado con interacciones ──────────────────
   if (elapsed >= shrinkEnd) {
-    ctx.letterSpacing = "0px"
+    // Se elimina el kerning negativo para dibujar el mosaico de fondo
+    ctx.letterSpacing = "0px" 
+    
     const waveElapsed = elapsed - shrinkEnd
     const cursorR  = cfg.cursorRadius * DPR
     const cursorR2 = cursorR * cursorR
@@ -320,7 +327,6 @@ function tick(now) {
       p.vx *= FRICTION;             p.vy *= FRICTION
       p.x  += p.vx;                 p.y  += p.vy
 
-      // Color dinámico almacenado en la partícula
       ctx.fillStyle = `rgba(${p.color.r},${p.color.g},${p.color.b},${alpha})`
       
       layoutCache.pixelMode
@@ -339,15 +345,10 @@ function tick(now) {
 window.startLogoAnimation = async function() {
   const container = document.querySelector('.load_container')
   const headingEl = document.querySelector('.load_container .heading-style-h4')
-  const tinyEl    = document.querySelector('.heading-style-h4.is-tiny')
 
   if (headingEl) {
     const csBig  = getComputedStyle(headingEl)
-    
-    // Leemos el tamaño del H1 de Webflow (tus 2rem, que serán unos 32px)
     cfg.bigFontPx = parseFloat(csBig.fontSize); 
-    
-    // NO tocamos cfg.letterSpacing, lo dejamos en 0 para el mosaico
   }
 
   await document.fonts.ready
@@ -356,7 +357,6 @@ window.startLogoAnimation = async function() {
     document.fonts.load(`${cfg.fontWeight} ${cfg.bigFontPx}px Satoshi`),
   ])
 
-  // Capturar coordenadas dinámicamente del HTML
   let startX = 0
   let startY = 0
   
@@ -367,7 +367,6 @@ window.startLogoAnimation = async function() {
     startX = (headingRect.left - canvasRect.left) * DPR
     startY = (headingRect.top - canvasRect.top + cfg.yOffsetDOM) * DPR
     
-    // Ocultamos el DOM real justo en este milisegundo
     if (container) container.style.opacity = 0
   }
 
@@ -377,7 +376,7 @@ window.startLogoAnimation = async function() {
 
   computeLayout()
   const phrase = findCenterPhrase()
-  if (!phrase) { console.warn('[tsc] frase no encontrada'); return }
+  if (!phrase) { console.warn('[tsc] frase no encontrada en centro geométrico'); return }
 
   buildParticles(phrase)
   setupBigPhrase(phrase, cfg.bigFontPx, startX, startY)
