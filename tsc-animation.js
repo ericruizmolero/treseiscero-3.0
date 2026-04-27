@@ -334,8 +334,8 @@ window.startLogoAnimation = async function() {
   
     cfg.fontSize      = 5;
     cfg.fontWeight    = 500;
-    cfg.letterSpacing = 0;
-    cfg.bigFontPx     = -0.96;
+    cfg.letterSpacing = -0.96; // <-- ¡Aquí va tu cálculo!
+    cfg.bigFontPx     = parseFloat(csBig.fontSize); // Esto debe seguir leyendo el tamaño del H1
   }
 
   await document.fonts.ready
