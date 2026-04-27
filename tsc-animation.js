@@ -514,8 +514,9 @@ friction:      ${cfg.friction},
   }
 }
 
-if (document.readyState === 'loading') {
-  document.addEventListener('DOMContentLoaded', createDebugPanel);
-} else {
-  createDebugPanel();
-}
+// Forzamos la aparición del panel dándole 1 segundo de respiro a Webflow
+setTimeout(() => {
+  if (!document.querySelector('h3')) { // Comprobación extra por seguridad
+    createDebugPanel();
+  }
+}, 1000);
