@@ -18,17 +18,16 @@ const FADE_IN_MS = 250
 const FRICTION   = 0.75
 
 const cfg = {
-  fontSize:      8,
+  fontSize:      8,     // Tamaño del texto del mosaico (según tu foto)
   fontWeight:    500,
-  lineHeight:    1.45,
-  letterSpacing: 0,
+  lineHeight:    1.25,  // Interlineado del mosaico (según tu foto)
+  letterSpacing: 0,     // Letra (separación) del mosaico en 0
   alphaThresh:   8,
-  bigFontPx:     60,
+  bigFontPx:     60,    // Se sobreescribirá abajo
   cursorRadius:  150,
   cursorForce:   4,
   returnSpeed:   1,
-  // 🔥 CAMBIA ESTO. Prueba con 4, 5, 6, o 7 hasta que sea perfecto.
-  yOffsetDOM:    5,
+  yOffsetDOM:    5,     // ¡El valor que te ha dejado la altura perfecta!
 }
 
 let FONT_FAMILY = 'Satoshi, Arial, sans-serif'
@@ -264,7 +263,9 @@ function tick(now) {
     ctx.translate(tx, ty)
     ctx.scale(s, s)
     
-    // Dibujamos por partes para mantener los colores
+    // 🔥 ESTA ES LA MAGIA: Aplicamos el espaciado de Webflow SÓLO a este texto
+    ctx.letterSpacing = "-0.06rem" 
+
     const part1 = "A "
     const part2 = "pixel"
     const part3 = " boutique"
@@ -285,6 +286,7 @@ function tick(now) {
 
   // ── Fase B: mosaico con física + ola de fade ───────────────────
   if (elapsed >= shrinkEnd) {
+    ctx.letterSpacing = "0px"
     const waveElapsed = elapsed - shrinkEnd
     const cursorR  = cfg.cursorRadius * DPR
     const cursorR2 = cursorR * cursorR
@@ -332,11 +334,11 @@ window.startLogoAnimation = async function() {
 
   if (headingEl) {
     const csBig  = getComputedStyle(headingEl)
-  
-    cfg.fontSize      = 5;
-    cfg.fontWeight    = 500;
-    cfg.letterSpacing = -1.5; // <-- ¡Aquí va tu cálculo!
-    cfg.bigFontPx     = parseFloat(csBig.fontSize); // Esto debe seguir leyendo el tamaño del H1
+    
+    // Leemos el tamaño del H1 de Webflow (tus 2rem, que serán unos 32px)
+    cfg.bigFontPx = parseFloat(csBig.fontSize); 
+    
+    // NO tocamos cfg.letterSpacing, lo dejamos en 0 para el mosaico
   }
 
   await document.fonts.ready
