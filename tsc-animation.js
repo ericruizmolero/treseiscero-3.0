@@ -484,7 +484,9 @@ function createDebugPanel() {
   document.body.appendChild(panel);
 }
 
-// Ejecutamos el panel solo si estamos en la página (puedes borrar toda esta sección luego)
-window.addEventListener('DOMContentLoaded', () => {
+// Ejecutamos el panel directamente (como es un module, el DOM ya existe)
+if (document.readyState === 'loading') {
+  document.addEventListener('DOMContentLoaded', createDebugPanel);
+} else {
   createDebugPanel();
-});
+}
