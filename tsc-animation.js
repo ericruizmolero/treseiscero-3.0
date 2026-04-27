@@ -7,12 +7,8 @@ const WORD    = 'A pixel boutique '
 const PHRASE  = 'A pixel boutique'
 
 const cfg = {
-  // ── 1. Aspecto del Mosaico (Las partículas pequeñas) ──
-  fontSize:      8,     // Tamaño de las mini letras
-  fontWeight:    500,   // Grosor (100, 400, 500, etc.)
-  lineHeight:    1.25,  // Interlineado (1.25 = 125%)
-  letterSpacing: -0.05,     // Espaciado entre letras en las partículas
-  wordSpacing:   0,     // Espacio extra entre palabras <-- ¡NUEVO!
+
+  fontSize:      6, fontWeight:    500, lineHeight:    0.9, letterSpacing: 0.4, wordSpacing:   -0.5,
   
   // ── 2. Ajuste de la Transición ──
   yOffsetDOM:    5,     // Ajuste vertical (en píxeles) para evitar el salto
