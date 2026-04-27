@@ -387,11 +387,11 @@ function createDebugPanel() {
   titlePhysics.style.cssText = 'margin: 20px 0 10px 0; border-bottom: 1px solid #444; padding-bottom: 5px; color: #ff4d65; font-size: 14px;';
   panel.appendChild(titlePhysics);
 
-  const controlsPhysics = [
+const controlsPhysics = [
     { label: 'Radio (Cursor)', key: 'cursorRadius', min: 50, max: 500, step: 10 },
     { label: 'Fuerza Empuje', key: 'cursorForce', min: 0.5, max: 20, step: 0.5 },
-    { label: 'Vel. Retorno', key: 'returnSpeed', min: 0.1, max: 10, step: 0.1 },
-    { label: 'Fricción', key: 'friction', min: 0.5, max: 0.99, step: 0.01 },
+    { label: 'Fuerza Muelle', key: 'returnSpeed', min: 0.1, max: 10, step: 0.1 },
+    { label: 'Rebote (Inercia)', key: 'friction', min: 0.50, max: 0.99, step: 0.01 },
   ];
   controlsPhysics.forEach(c => addControl(panel, c, false));
 
