@@ -265,7 +265,7 @@ function tick(now) {
     ctx.scale(s, s)
     
     // 🔥 ESTA ES LA MAGIA: Aplicamos el espaciado de Webflow SÓLO a este texto
-    
+    ctx.letterSpacing = -0.96;
 
     const part1 = "A "
     const part2 = "pixel"
