@@ -12,7 +12,7 @@ const COLOR_MAIN = { r: 2, g: 45, b: 66 }
 const COLOR_MIST = { r: 170, g: 182, b: 182 } // Este es tu #aab6b6
 
 const PAUSE_MS   = 500
-const SHRINK_MS  = 1500
+const SHRINK_MS  = 1000
 const WAVE_MS    = 900
 const FADE_IN_MS = 250
 const FRICTION   = 0.75
@@ -182,11 +182,12 @@ function buildParticles(phraseRect) {
         }
       }
       const particleColor = isMistChar ? COLOR_MIST : COLOR_MAIN;
-
+// ELIMINA la lógica de 'isMistChar' y reemplázala por esto:
       if (alpha >= cfg.alphaThresh) {
         raw.push({
           ox: x, oy, x, y: oy, vx: 0, vy: 0,
-          ch: text[ci], cw, lineH, color: particleColor,
+          ch: text[ci], cw, lineH, 
+          color: COLOR_MAIN, // Todas las partículas heredan el color oscuro final
           cx: sx, rawA: alpha/255, isCentral
         })
       }
@@ -239,8 +240,11 @@ window.addEventListener('mouseleave', () => { mouse.active=false })
 // ══════════════════════════════════════════════════════════════════
 //  RENDER LOOP
 // ══════════════════════════════════════════════════════════════════
-const lerp         = (a, b, t) => a + (b-a)*t
-const easeOutCubic = t => 1 - Math.pow(1-t, 3)
+const lerp           = (a, b, t) => a + (b-a)*t
+const easeOutCubic   = t => 1 - Math.pow(1-t, 3)
+// Nuevo easing orgánico: arranca suave, acelera, frena suave
+const easeInOutCubic = t => t < 0.5 ? 4 * t * t * t : 1 - Math.pow(-2 * t + 2, 3) / 2;
+
 let animating=false, startTime=0
 
 function tick(now) {
@@ -253,9 +257,9 @@ function tick(now) {
   ctx.font = `${cfg.fontWeight} ${cfg.fontSize*DPR}px ${FONT_FAMILY}`
   ctx.textBaseline = 'top'
 
-  // ── Fase A: big phrase shrink (con 2 colores) ──────────────────
+  // ── Fase A: big phrase shrink (con transición de color) ───────────
   if (shrinkT < 1) {
-    const e  = easeOutCubic(shrinkT)
+    const e  = easeInOutCubic(shrinkT) // <-- Usamos el easing orgánico
     const tx = lerp(bigPhrase.startTx, bigPhrase.finalTx, e)
     const ty = lerp(bigPhrase.startTy, bigPhrase.finalTy, e)
     const s  = lerp(bigPhrase.startScale, bigPhrase.finalScale, e)
@@ -264,8 +268,7 @@ function tick(now) {
     ctx.translate(tx, ty)
     ctx.scale(s, s)
     
-    // 🔥 ESTA ES LA MAGIA: Aplicamos el espaciado de Webflow SÓLO a este texto
-    ctx.letterSpacing = "-0.03rem"
+    ctx.letterSpacing = "-0.06rem" 
 
     const part1 = "A "
     const part2 = "pixel"
@@ -275,7 +278,12 @@ function tick(now) {
     ctx.fillText(part1, 0, 0)
     let offset = ctx.measureText(part1).width
     
-    ctx.fillStyle = `rgba(${COLOR_MIST.r},${COLOR_MIST.g},${COLOR_MIST.b},1)`
+    // 🔥 Transición de color dinámica (de MIST a MAIN) según avanza la animación
+    const curR = Math.round(lerp(COLOR_MIST.r, COLOR_MAIN.r, e))
+    const curG = Math.round(lerp(COLOR_MIST.g, COLOR_MAIN.g, e))
+    const curB = Math.round(lerp(COLOR_MIST.b, COLOR_MAIN.b, e))
+    
+    ctx.fillStyle = `rgba(${curR},${curG},${curB},1)` // El color se oscurece orgánicamente
     ctx.fillText(part2, offset, 0)
     offset += ctx.measureText(part2).width
     
