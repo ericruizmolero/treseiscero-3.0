@@ -2,33 +2,38 @@
 import { prepareWithSegments, layoutWithLines } from 'https://esm.sh/@chenglou/pretext'
 
 // ══════════════════════════════════════════════════════════════════
-//  🕹️ PANEL DE CONTROL (MODIFICA ESTOS VALORES PARA PROBAR)
+//  CONFIGURACIÓN FINAL
 // ══════════════════════════════════════════════════════════════════
 const WORD    = 'A pixel boutique '
 const PHRASE  = 'A pixel boutique'
 
 const cfg = {
+  // ── Layout ──
   fontSize:      6, 
   fontWeight:    500, 
   lineHeight:    0.9, 
   letterSpacing: 0.4, 
   wordSpacing:   -0.5,
   yOffsetDOM:    5,     
+  
+  // ── Físicas e Interacción ──
   alphaThresh:   8,     
   cursorRadius:  150,   
   cursorForce:   4,     
-  returnSpeed:   1,     
-  friction:      0.9,   
+  returnSpeed:   9.8,   
+  friction:      0.79,   
+  
+  // ── Auto-calculado ──
   bigFontPx:     60,    
 }
 
 const COLOR_MAIN = { r: 2, g: 45, b: 66 }     
 const COLOR_MIST = { r: 170, g: 182, b: 182 } 
 
-const PAUSE_MS   = 100  
+const PAUSE_MS   = 30  
 const SHRINK_MS  = 600 
-const WAVE_MS    = 300  
-const FADE_IN_MS = 250  
+const WAVE_MS    = 700  
+const FADE_IN_MS = 400  
 
 let FONT_FAMILY = 'Satoshi, Arial, sans-serif'
 
@@ -350,125 +355,3 @@ window.startLogoAnimation = async function() {
   startTime=performance.now(); animating=true
   requestAnimationFrame(tick)
 }
-
-// ══════════════════════════════════════════════════════════════════
-//  🛠️ DEBUG PANEL (DIRECTO AL DOM)
-// ══════════════════════════════════════════════════════════════════
-function createDebugPanel() {
-  if (document.getElementById('tsc-debug-panel')) return;
-
-  const panel = document.createElement('div');
-  panel.id = 'tsc-debug-panel';
-  panel.style.cssText = `
-    position: fixed; bottom: 20px; right: 20px; width: 320px;
-    background: rgba(10, 15, 20, 0.95); color: #fff; padding: 15px;
-    border-radius: 8px; z-index: 999999; font-family: monospace;
-    font-size: 12px; box-shadow: 0 10px 30px rgba(0,0,0,0.5);
-    border: 1px solid #333; backdrop-filter: blur(5px);
-    max-height: 90vh; overflow-y: auto;
-  `;
-
-  const titleLayout = document.createElement('h3');
-  titleLayout.innerText = '⚙️ Layout del Mosaico';
-  titleLayout.style.cssText = 'margin: 0 0 10px 0; border-bottom: 1px solid #444; padding-bottom: 5px; color: #4d65ff; font-size: 14px;';
-  panel.appendChild(titleLayout);
-
-  const controlsLayout = [
-    { label: 'Tamaño letra', key: 'fontSize', min: 2, max: 20, step: 0.5 },
-    { label: 'Interlineado', key: 'lineHeight', min: 0.5, max: 3, step: 0.05 },
-    { label: 'Espacio Letras', key: 'letterSpacing', min: -5, max: 10, step: 0.1 },
-    { label: 'Espacio Palab.', key: 'wordSpacing', min: -5, max: 15, step: 0.5 },
-    { label: 'Ajuste (Y)', key: 'yOffsetDOM', min: -50, max: 50, step: 1 },
-  ];
-  controlsLayout.forEach(c => addControl(panel, c, true));
-
-  const titlePhysics = document.createElement('h3');
-  titlePhysics.innerText = '🖱️ Físicas del Ratón';
-  titlePhysics.style.cssText = 'margin: 20px 0 10px 0; border-bottom: 1px solid #444; padding-bottom: 5px; color: #ff4d65; font-size: 14px;';
-  panel.appendChild(titlePhysics);
-
-const controlsPhysics = [
-    { label: 'Radio (Cursor)', key: 'cursorRadius', min: 50, max: 500, step: 10 },
-    { label: 'Fuerza Empuje', key: 'cursorForce', min: 0.5, max: 20, step: 0.5 },
-    { label: 'Fuerza Muelle', key: 'returnSpeed', min: 0.1, max: 10, step: 0.1 },
-    { label: 'Rebote (Inercia)', key: 'friction', min: 0.50, max: 0.99, step: 0.01 },
-  ];
-  controlsPhysics.forEach(c => addControl(panel, c, false));
-
-  const btnWrap = document.createElement('div');
-  btnWrap.style.cssText = 'display: flex; gap: 10px; margin-top: 20px;';
-
-  const btnReplay = document.createElement('button');
-  btnReplay.innerText = '▶ Probar';
-  btnReplay.style.cssText = 'flex: 1; background: #4d65ff; color: white; border: none; padding: 8px; border-radius: 4px; cursor: pointer; font-weight: bold;';
-  btnReplay.onclick = () => {
-    const container = document.querySelector('.load_container');
-    if(container) container.style.opacity = 1;
-    window.startLogoAnimation();
-  };
-
-  const btnLog = document.createElement('button');
-  btnLog.innerText = '📋 Copiar Todo';
-  btnLog.style.cssText = 'flex: 1; background: #333; color: white; border: none; padding: 8px; border-radius: 4px; cursor: pointer;';
-  btnLog.onclick = () => {
-    const configToCopy = `
-fontSize:      ${cfg.fontSize},
-lineHeight:    ${cfg.lineHeight},
-letterSpacing: ${cfg.letterSpacing},
-wordSpacing:   ${cfg.wordSpacing},
-yOffsetDOM:    ${cfg.yOffsetDOM},
-cursorRadius:  ${cfg.cursorRadius},
-cursorForce:   ${cfg.cursorForce},
-returnSpeed:   ${cfg.returnSpeed},
-friction:      ${cfg.friction},
-    `;
-    navigator.clipboard.writeText(configToCopy);
-    btnLog.innerText = '¡Copiado!';
-    setTimeout(() => btnLog.innerText = '📋 Copiar Todo', 1500);
-  };
-
-  btnWrap.appendChild(btnReplay);
-  btnWrap.appendChild(btnLog);
-  panel.appendChild(btnWrap);
-
-  function addControl(parent, c, isLayout) {
-    const wrap = document.createElement('div');
-    wrap.style.cssText = 'display: flex; justify-content: space-between; align-items: center; margin-bottom: 8px;';
-    const label = document.createElement('span');
-    label.innerText = c.label;
-    const input = document.createElement('input');
-    input.type = 'range';
-    input.min = c.min; input.max = c.max; input.step = c.step;
-    input.value = cfg[c.key];
-    input.style.width = '120px';
-    const valDisplay = document.createElement('span');
-    valDisplay.innerText = cfg[c.key];
-    valDisplay.style.cssText = 'width: 40px; text-align: right; color: #aab6b6; font-weight: bold;';
-
-    input.addEventListener('input', (e) => {
-      const val = parseFloat(e.target.value);
-      cfg[c.key] = val;
-      valDisplay.innerText = val;
-
-      if (isLayout && c.key !== 'yOffsetDOM') {
-        computeLayout();
-        const phrase = findCenterPhrase();
-        if (phrase) {
-          buildParticles(phrase);
-          particles.forEach(p => { p.x = p.ox; p.y = p.oy; p.revealDelay = -9999; });
-        }
-      }
-    });
-    wrap.appendChild(label); wrap.appendChild(input); wrap.appendChild(valDisplay);
-    parent.appendChild(wrap);
-  }
-  document.body.appendChild(panel);
-}
-
-// Dibujamos el panel obligatoriamente a los 1.5 segundos (sin condiciones trampa)
-setTimeout(() => {
-  createDebugPanel();
-}, 1500);
-
-// Lo anclamos también al objeto Window por si quieres llamarlo a mano
-window.crearPanelForzado = createDebugPanel;
