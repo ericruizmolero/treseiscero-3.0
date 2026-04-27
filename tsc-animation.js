@@ -65,11 +65,18 @@ const canvas = document.getElementById('tsc-canvas')
 const ctx    = canvas.getContext('2d')
 const DPR    = Math.min(window.devicePixelRatio || 1, 3)
 
-const DISPLAY_W = wrap.offsetWidth || Math.min(window.innerWidth * 0.9, 1000)
-const RENDER_W  = Math.round(DISPLAY_W * DPR)
-const RENDER_H  = Math.round(RENDER_W * (18 / 123))
-canvas.width  = RENDER_W
-canvas.height = RENDER_H
+const DISPLAY_W  = wrap.offsetWidth || Math.min(window.innerWidth * 0.9, 1000)
+const DISPLAY_H  = Math.round(DISPLAY_W * (18 / 123))
+const RENDER_W   = Math.round(DISPLAY_W * DPR)
+const RENDER_H   = Math.round(RENDER_W * (18 / 123))
+canvas.width     = RENDER_W
+canvas.height    = RENDER_H
+// Forzar tamaño CSS directamente en JS — no depende del CSS externo de Webflow.
+// Sin esto el canvas se renderiza a su tamaño de buffer (ej. 1800px en retina)
+// en vez de al tamaño del contenedor (ej. 900px).
+canvas.style.width  = DISPLAY_W + 'px'
+canvas.style.height = DISPLAY_H + 'px'
+canvas.style.display = 'block'
 
 // ── SVG → máscara de alpha ────────────────────────────────────────
 const mask = await new Promise((resolve, reject) => {
