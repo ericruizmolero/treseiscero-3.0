@@ -57,16 +57,37 @@ const SVG_SRC = `<svg width="123" height="18" viewBox="0 0 123 18" fill="none" x
 // ══════════════════════════════════════════════════════════════════
 //  CANVAS SETUP
 // ══════════════════════════════════════════════════════════════════
+// ══════════════════════════════════════════════════════════════════
+//  CANVAS SETUP (CON MARGEN PARA OVERFLOW)
+// ══════════════════════════════════════════════════════════════════
 const wrap   = document.getElementById('tsc-logo-wrap')
 const canvas = document.getElementById('tsc-canvas')
 const ctx    = canvas.getContext('2d')
 const DPR    = Math.min(window.devicePixelRatio || 1, 3)
 
-const DISPLAY_W = wrap.offsetWidth || Math.min(window.innerWidth * 0.9, 1000)
-const RENDER_W  = Math.round(DISPLAY_W * DPR)
-const RENDER_H  = Math.round(RENDER_W * (18 / 123))
-canvas.width  = RENDER_W
-canvas.height = RENDER_H
+// 1. Calculamos el tamaño base
+const BASE_W = wrap.offsetWidth || Math.min(window.innerWidth * 0.9, 1000)
+const BASE_H = Math.round(BASE_W * (18 / 123))
+
+// 2. Añadimos un "extra" de espacio interno (ej: 200px por cada lado) 
+// para que las partículas tengan espacio para volar sin cortarse
+const EXTRA = 200 * DPR 
+
+canvas.width  = (BASE_W * DPR) + (EXTRA * 2)
+canvas.height = (BASE_H * DPR) + (EXTRA * 2)
+
+// 3. Aplicamos el estilo responsive pero permitiendo que el canvas sea más grande que su contenedor
+canvas.style.width    = `calc(100% + ${(EXTRA * 2) / DPR}px)`
+canvas.style.height   = `calc(auto + ${(EXTRA * 2) / DPR}px)`
+canvas.style.marginLeft = `-${EXTRA / DPR}px`
+canvas.style.marginTop  = `-${EXTRA / DPR}px`
+canvas.style.display  = 'block'
+
+// 4. IMPORTANTE: Desplazamos todo el dibujo al centro para compensar el margen extra
+ctx.translate(EXTRA, EXTRA)
+
+// Ahora, cuando el código use las coordenadas de la 'mask', 
+// se dibujará en el centro del canvas expandido.
 
 const mask = await new Promise((resolve, reject) => {
   const blob = new Blob([SVG_SRC], { type: 'image/svg+xml' })
