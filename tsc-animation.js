@@ -28,11 +28,11 @@ const COLOR_MAIN = { r: 2, g: 45, b: 66 }     // Azul oscuro
 const COLOR_MIST = { r: 170, g: 182, b: 182 } // Gris claro (#aab6b6)
 
 // ── 5. Tiempos de Animación (En milisegundos) ──
-const PAUSE_MS   = 500  // Tiempo que espera antes de empezar a encogerse
-const SHRINK_MS  = 1000 // Tiempo que dura el encogimiento
-const WAVE_MS    = 900  // Velocidad de la ola que revela las letras
+const PAUSE_MS   = 100  // Tiempo que espera antes de empezar a encogerse
+const SHRINK_MS  = 600 // Tiempo que dura el encogimiento
+const WAVE_MS    = 300  // Velocidad de la ola que revela las letras
 const FADE_IN_MS = 250  // Velocidad a la que aparece cada letra individual
-const FRICTION   = 0.75 // Fricción física (0.9 = resbala mucho, 0.5 = frena rápido)
+const FRICTION   = 0.9 // Fricción física (0.9 = resbala mucho, 0.5 = frena rápido)
 
 let FONT_FAMILY = 'Satoshi, Arial, sans-serif'
 
