@@ -335,7 +335,7 @@ window.startLogoAnimation = async function() {
     cfg.fontSize      = 5;
     cfg.fontWeight    = 500;
     cfg.letterSpacing = 0;
-    cfg.bigFontPx     = parseFloat(csBig.fontSize)
+    cfg.bigFontPx     = -0.96;
   }
 
   await document.fonts.ready
